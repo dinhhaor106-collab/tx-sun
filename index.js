@@ -45,6 +45,7 @@ const WEIGHTS = [0.5, 0.3, -1.4, 0.9, -0.4, -1.9, 1.4, -0.3, 2, 0.4];
 let consecLosses = 0;
 let currentPrediction = null;
 let prevSessionRecord = null;
+let lastTickTime = Date.now();
 
 // Hàm tính toán dự đoán dựa trên Ensemble và Phản hồi ngược
 function getEnsemblePrediction(curr, prev, losses) {
@@ -219,8 +220,19 @@ function connectWS() {
             snap_20: null
           });
           console.log(`[🎲 Phiên mới] #${currentSessionId} bắt đầu đếm ngược.`);
+          lastTickTime = Date.now();
         } else {
-          localCountdown--;
+          const now = Date.now();
+          if (payload.rmT !== undefined) {
+            localCountdown = Math.round(payload.rmT / 1000);
+            lastTickTime = now;
+          } else {
+            // Giới hạn tần suất giảm giây (tối thiểu 850ms giữa các lần giảm để chống double-tick do nhận nhiều tin nhắn)
+            if (now - lastTickTime >= 850) {
+              localCountdown = Math.max(0, localCountdown - 1);
+              lastTickTime = now;
+            }
+          }
         }
 
         // Trích xuất số liệu cược
