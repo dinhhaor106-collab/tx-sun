@@ -21,10 +21,7 @@ const WS_HEADERS = {
 
 // Gói tin khởi tạo để đăng ký lắng nghe sự kiện từ Server
 const INIT_MSGS = [
-  [1, "MiniGame", "GM_apivopnha", "WangLin", {
-    "info": "{\"ipAddress\":\"14.249.227.107\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiI5ODE5YW5zc3MiLCJib3QiOjAsImlzTWVyY2hhbnQiOmZhbHNlLCJ2ZXJpZmllZEJhbmtBY2NvdW50IjpmYWxzZSwicGxheUV2ZW50TG9iYnkiOmZhbHNlLCJjdXN0b21lcklkIjozMjMyODExNTEsImFmZklkIjoic3VuLndpbiIsImJhbm5lZCI6ZmFsc2UsImJyYW5kIjoiZ2VtIiwidGltZXN0YW1wIjoxNzYzMDMyOTI4NzcwLCJsb2NrR2FtZXMiOltdLCJhbW91bnQiOjAsImxvY2tDaGF0IjpmYWxzZSwicGhvbmVWZXJpZmllZCI6ZmFsc2UsImlwQWRkcmVzcyI6IjE0LjI0OS4yMjcuMTA3IiwibXV0ZSI6ZmFsc2UsImF2YXRhciI6Imh0dHBzOi8vaW1hZ2VzLnN3aW5zaG9wLm5ldC9pbWFnZXMvYXZhdGFyL2F2YXRhcl8wNS5wbmciLCJwbGF0Zm9ybUlkIjo0LCJ1c2VySWQiOiI4ODM4NTMzZS1kZTQzLTRiOGQtOTUwMy02MjFmNDA1MDUzNGUiLCJyZWdUaW1lIjoxNzYxNjMyMzAwNTc2LCJwaG9uZSI6IiIsImRlcG9zaXQiOmZhbHNlLCJ1c2VybmFtZSI6IkdNX2FwaXZvcG5oYSJ9.guH6ztJSPXUL1cU8QdMz8O1Sdy_SbxjSM-CDzWPTr-0\",\"locale\":\"vi\",\"userId\":\"8838533e-de43-4b8d-9503-621f4050534e\",\"username\":\"GM_apivopnha\",\"timestamp\":1763032928770,\"refreshToken\":\"e576b43a64e84f789548bfc7c4c8d1e5.7d4244a361e345908af95ee2e8ab2895\"}",
-    "signature": "45EF4B318C883862C36E1B189A1DF5465EBB60CB602BA05FAD8FCBFCD6E0DA8CB3CE65333EDD79A2BB4ABFCE326ED5525C7D971D9DEDB5A17A72764287FFE6F62CBC2DF8A04CD8EFF8D0D5AE27046947ADE45E62E644111EFDE96A74FEC635A97861A425FF2B5732D74F41176703CA10CFEED67D0745FF15EAC1065E1C8BCBFA"
-  }],
+  [1,"MiniGame","GM_apivopnha","WangLin",{"info":"{\"ipAddress\":\"14.249.227.107\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiI5ODE5YW5zc3MiLCJib3QiOjAsImlzTWVyY2hhbnQiOmZhbHNlLCJ2ZXJpZmllZEJhbmtBY2NvdW50IjpmYWxzZSwicGxheUV2ZW50TG9iYnkiOmZhbHNlLCJjdXN0b21lcklkIjozMjMyODExNTEsImFmZklkIjoic3VuLndpbiIsImJhbm5lZCI6ZmFsc2UsImJyYW5kIjoiZ2VtIiwidGltZXN0YW1wIjoxNzYzMDMyOTI4NzcwLCJsb2NrR2FtZXMiOltdLCJhbW91bnQiOjAsImxvY2tDaGF0IjpmYWxzZSwicGhvbmVWZXJpZmllZCI6ZmFsc2UsImlwQWRkcmVzcyI6IjE0LjI0OS4yMjcuMTA3IiwibXV0ZSI6ZmFsc2UsImF2YXRhciI6Imh0dHBzOi8vaW1hZ2VzLnN3aW5zaG9wLm5ldC9pbWFnZXMvYXZhdGFyL2F2YXRhcl8wNS5wbmciLCJwbGF0Zm9ybUlkIjo0LCJ1c2VySWQiOiI4ODM4NTMzZS1kZTQzLTRiOGQtOTUwMy02MjFmNDA1MDUzNGUiLCJyZWdUaW1lIjoxNzYxNjMyMzAwNTc2LCJwaG9uZSI6IiIsImRlcG9zaXQiOmZhbHNlLCJ1c2VybmFtZSI6IkdNX2FwaXZvcG5oYSJ9.guH6ztJSPXUL1cU8QdMz8O1Sdy_SbxjSM-CDzWPTr-0\",\"locale\":\"vi\",\"userId\":\"8838533e-de43-4b8d-9503-621f4050534e\",\"username\":\"GM_apivopnha\",\"timestamp\":1763032928770,\"refreshToken\":\"e576b43a64e84f789548bfc7c4c8d1e5.7d4244a361e345908af95ee2e8ab2895\"}","signature":"45EF4B318C883862C36E1B189A1DF5465EBB60CB602BA05FAD8FCBFCD6E0DA8CB3CE65333EDD79A2BB4ABFCE326ED5525C7D971D9DEDB5A17A72764287FFE6F62CBC2DF8A04CD8EFF8D0D5AE27046947ADE45E62E644111EFDE96A74FEC635A97861A425FF2B5732D74F41176703CA10CFEED67D0745FF15EAC1065E1C8BCBFA"}],
   [6, "MiniGame", "taixiuPlugin", { cmd: 1005 }],
   [6, "MiniGame", "lobbyPlugin", { cmd: 10001 }]
 ];
@@ -40,6 +37,111 @@ let localCountdown = 50; // Đếm ngược cục bộ bằng giây
 let snapshotted30 = false;
 let snapshotted20 = false;
 let frozenSnapshots = new Map(); // Lưu snapshot tạm thời chờ kết quả: sessionId -> record
+
+// Biến điều khiển thuật toán Ensemble chuỗi sai tối đa <= 2
+const WEIGHTS = [0.5, 0.3, -1.4, 0.9, -0.4, -1.9, 1.4, -0.3, 2, 0.4];
+let consecLosses = 0;
+let currentPrediction = null;
+let prevSessionRecord = null;
+
+// Hàm tính toán dự đoán dựa trên Ensemble và Phản hồi ngược
+function getEnsemblePrediction(curr, prev, losses) {
+  const preds = [];
+  
+  // 1. Cầu thuận
+  const prevOutcome = prev && prev.ket_qua ? (prev.ket_qua === 'Tài' ? 1 : -1) : 1;
+  preds.push(prevOutcome);
+  
+  // 2. Cầu nghịch
+  preds.push(-prevOutcome);
+  
+  // 3. Thuận tiền 30s
+  const p_thuantien30 = curr.snap_30 && curr.snap_30.tien_tai > curr.snap_30.tien_xiu ? 1 : -1;
+  preds.push(p_thuantien30);
+  
+  // 4. Ngược tiền 30s
+  preds.push(-p_thuantien30);
+  
+  // 5. Thuận tiền 20s
+  const p_thuantien20 = curr.snap_20 && curr.snap_20.tien_tai > curr.snap_20.tien_xiu ? 1 : -1;
+  preds.push(p_thuantien20);
+  
+  // 6. Ngược tiền 20s
+  preds.push(-p_thuantien20);
+  
+  // 7. Thuận người 30s
+  const p_thuanuser30 = curr.snap_30 && curr.snap_30.nguoi_tai > curr.snap_30.nguoi_xiu ? 1 : -1;
+  preds.push(p_thuanuser30);
+  
+  // 8. Ngược người 30s
+  preds.push(-p_thuanuser30);
+  
+  // 9. Thuận đà tiền (Acceleration)
+  const diff_tai = curr.snap_30 && curr.snap_20 ? (curr.snap_20.tien_tai - curr.snap_30.tien_tai) : 0;
+  const diff_xiu = curr.snap_30 && curr.snap_20 ? (curr.snap_20.tien_xiu - curr.snap_30.tien_xiu) : 0;
+  const p_thuanda = diff_tai > diff_xiu ? 1 : -1;
+  preds.push(p_thuanda);
+  
+  // 10. Ngược đà tiền
+  preds.push(-p_thuanda);
+  
+  // Tính tổng điểm vote có trọng số
+  let score = 0;
+  for (let i = 0; i < 10; i++) {
+    score += preds[i] * WEIGHTS[i];
+  }
+  
+  let finalPred = score >= 0 ? 'Tài' : 'Xỉu';
+  
+  // Phản hồi ngược động (Invert) nếu chuỗi thua liên tiếp chạm ngưỡng 2
+  if (losses >= 2) {
+    finalPred = finalPred === 'Tài' ? 'Xỉu' : 'Tài';
+  }
+  
+  return finalPred;
+}
+
+// Khởi chạy đồng bộ trạng thái khi Restart server
+function loadHistoryAndSync() {
+  const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
+  if (!fs.existsSync(filePath)) {
+    console.log('[🔋 Khởi động] Chưa có file lịch sử cược.');
+    return;
+  }
+  
+  try {
+    const data = fs.readFileSync(filePath, 'utf8');
+    const lines = data.trim().split('\n').filter(Boolean);
+    const records = lines.map(line => JSON.parse(line));
+    
+    if (records.length === 0) return;
+    
+    let prev = null;
+    let tempLosses = 0;
+    
+    // Giả lập lại chuỗi dự đoán để xác định chính xác consecLosses hiện tại
+    for (let i = 0; i < records.length; i++) {
+      const curr = records[i];
+      if (curr.snap_30 || curr.snap_20) {
+        const pred = getEnsemblePrediction(curr, prev, tempLosses);
+        if (curr.ket_qua && curr.ket_qua !== '---') {
+          if (pred === curr.ket_qua) {
+            tempLosses = 0;
+          } else {
+            tempLosses++;
+          }
+        }
+      }
+      prev = curr;
+    }
+    
+    consecLosses = tempLosses;
+    prevSessionRecord = records[records.length - 1];
+    console.log(`[🔋 Khởi động] Đồng bộ thành công. Chuỗi thua hiện tại của Bot: ${consecLosses}`);
+  } catch (e) {
+    console.error('Lỗi đồng bộ lịch sử khởi động:', e.message);
+  }
+}
 
 function connectWS() {
   if (ws) {
@@ -83,10 +185,9 @@ function connectWS() {
         currentSessionId = payload.sid;
         if (payload.rmT !== undefined) {
           localCountdown = Math.round(payload.rmT / 1000);
-          snapshotted30 = localCountdown < 30; // Bỏ qua mốc 30s nếu kết nối trễ
-          snapshotted20 = localCountdown < 20; // Bỏ qua mốc 20s nếu kết nối trễ
+          snapshotted30 = localCountdown < 30;
+          snapshotted20 = localCountdown < 20;
           
-          // Khởi tạo bản ghi rỗng cho phiên hiện tại
           if (!frozenSnapshots.has(currentSessionId)) {
             frozenSnapshots.set(currentSessionId, {
               phien: currentSessionId,
@@ -108,8 +209,8 @@ function connectWS() {
           localCountdown = 50;
           snapshotted30 = false;
           snapshotted20 = false;
+          currentPrediction = null;
           
-          // Tạo bản ghi trống mới
           frozenSnapshots.set(currentSessionId, {
             phien: currentSessionId,
             snap_30: null,
@@ -120,7 +221,7 @@ function connectWS() {
           localCountdown--;
         }
 
-        // Trích xuất số liệu cược (aid: 1 là Tài Xỉu chuẩn)
+        // Trích xuất số liệu cược
         if (payload.gi && payload.gi[0] && payload.gi[0].aid === 1) {
           const gameInfo = payload.gi[0];
           const taiMoney = gameInfo.B ? (gameInfo.B.tB || 0) : 0;
@@ -140,10 +241,9 @@ function connectWS() {
                 nguoi_xiu: xiuUsers,
                 timestamp: new Date().toISOString()
               };
-              console.log(`[📌 CHỐT 30s] Phiên #${currentSessionId} | Tài: ${taiMoney.toLocaleString()}đ / Xỉu: ${xiuMoney.toLocaleString()}đ`);
             }
 
-            // Chốt dữ liệu ở giây thứ 20
+            // Chốt dữ liệu ở giây thứ 20 -> TÍNH TOÁN DỰ ĐOÁN CHO PHIÊN NÀY
             if (localCountdown === 20 && !snapshotted20) {
               snapshotted20 = true;
               record.snap_20 = {
@@ -153,7 +253,18 @@ function connectWS() {
                 nguoi_xiu: xiuUsers,
                 timestamp: new Date().toISOString()
               };
-              console.log(`[📌 CHỐT 20s] Phiên #${currentSessionId} | Tài: ${taiMoney.toLocaleString()}đ / Xỉu: ${xiuMoney.toLocaleString()}đ`);
+              
+              // Chạy mô hình dự đoán ngay khi có đủ snap_30 và snap_20
+              const pred = getEnsemblePrediction(record, prevSessionRecord, consecLosses);
+              currentPrediction = {
+                phien: currentSessionId,
+                du_doan: pred,
+                chuoi_thua_hien_tai: consecLosses,
+                timestamp: new Date().toISOString()
+              };
+              record.du_doan = pred;
+              
+              console.log(`[🔮 AI DỰ ĐOÁN] Phiên #${currentSessionId}: Đặt ${pred.toUpperCase()} (Độ lệch chuỗi thua: ${consecLosses})`);
             }
           }
         }
@@ -178,10 +289,20 @@ function connectWS() {
           record.tong_diem = total;
           record.timestamp_ket_qua = new Date().toISOString();
 
-          // Lưu bản ghi hoàn chỉnh chứa cả 2 mốc 30s, 20s và Kết quả
+          // Đánh giá dự đoán của phiên này để cập nhật consecLosses cho phiên sau
+          if (record.du_doan) {
+            if (record.du_doan === result) {
+              console.log(`[🎯 ĐÚNG] Dự đoán chính xác! Reset chuỗi thua.`);
+              consecLosses = 0;
+            } else {
+              consecLosses++;
+              console.log(`[❌ SAI] Dự đoán chưa đúng. Chuỗi thua liên tiếp hiện tại: ${consecLosses}`);
+            }
+          }
+
           saveCompletedRecord(record);
           
-          // Xóa khỏi map tạm thời
+          prevSessionRecord = record;
           frozenSnapshots.delete(currentSessionId);
         }
       }
@@ -217,16 +338,9 @@ function cleanup() {
   clearTimeout(reconnectTimeout);
 }
 
-// Lưu bản ghi hoàn chỉnh chứa cả snap_30, snap_20 và kết quả
+// Lưu bản ghi hoàn chỉnh
 function saveCompletedRecord(record) {
   const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
-  
-  // Format log đẹp mắt cho Railway console
-  const t30 = record.snap_30 ? `T:${record.snap_30.tien_tai.toLocaleString()} / X:${record.snap_30.tien_xiu.toLocaleString()}` : 'N/A';
-  const t20 = record.snap_20 ? `T:${record.snap_20.tien_tai.toLocaleString()} / X:${record.snap_20.tien_xiu.toLocaleString()}` : 'N/A';
-  
-  console.log(`[💾 LƯU BẢN GHI] Phiên #${record.phien} | 30s cược: [${t30}] | 20s cược: [${t20}] | Kết quả: ${record.ket_qua} (${record.xuc_xac})`);
-
   fs.appendFile(filePath, JSON.stringify(record) + '\n', (err) => {
     if (err) console.error('[❌] Lỗi ghi file lịch sử:', err.message);
   });
@@ -234,7 +348,20 @@ function saveCompletedRecord(record) {
 
 // ===== API ENDPOINTS =====
 
-// Lấy lịch sử dữ liệu thu thập được chứa cả mốc 30s, 20s và kết quả
+// Lấy dự đoán của phiên hiện tại (tính toán ở giây 20 đếm ngược)
+app.get('/api/prediction', (req, res) => {
+  if (currentPrediction) {
+    res.json(currentPrediction);
+  } else {
+    res.json({
+      phien: currentSessionId,
+      du_doan: "dang_doi_giay_20",
+      mo_ta: "Đang chờ đến giây thứ 20 để thu thập đủ chỉ số cược"
+    });
+  }
+});
+
+// Lấy lịch sử dữ liệu thu thập
 app.get('/api/history', (req, res) => {
   const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
   if (!fs.existsSync(filePath)) {
@@ -248,20 +375,23 @@ app.get('/api/history', (req, res) => {
       try { return JSON.parse(line); } catch (e) { return null; }
     }).filter(Boolean);
     
-    // Trả về danh sách mới nhất ở đầu
     res.json(records.reverse());
   });
 });
 
 app.get('/', (req, res) => {
   res.json({
-    name: "Sunwin Double Snapshot Data Collector",
+    name: "Sunwin Perfect Prediction API",
     status: "running",
     endpoints: {
+      prediction: "/api/prediction",
       history: "/api/history"
     }
   });
 });
+
+// Khởi chạy đồng bộ trước khi mở cổng Server
+loadHistoryAndSync();
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[🌐] API Server đang chạy tại http://0.0.0.0:${PORT}`);
