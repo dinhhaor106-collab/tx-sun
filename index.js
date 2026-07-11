@@ -67,8 +67,11 @@ function connectWS() {
 
   ws.on('message', (raw) => {
     try {
-      const data = JSON.parse(raw);
-      // Gói tin hợp lệ luôn là một mảng: [channelId, namespace, payload] hoặc tương tự
+      const text = raw.toString();
+      // Log toàn bộ tin nhắn nhận được để phân tích cấu trúc
+      console.log(`[📩 NHẬN TIN NHẮN THÔ]: ${text}`);
+
+      const data = JSON.parse(text);
       if (!Array.isArray(data) || typeof data[1] !== 'object') return;
       
       const payload = data[1];
