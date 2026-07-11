@@ -1,6 +1,16 @@
 const WebSocket = require('ws');
+const express = require('express');
 const fs = require('fs');
 const path = require('path');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
 
 // Cấu hình WebSocket JSON từ thư mục test hoạt động 24/7 ổn định
 const WS_URL = "wss://websocket.azhkthg1.net/websocket?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhbW91bnQiOjAsInVzZXJuYW1lIjoiU0NfYXBpc3Vud2luMTIzIn0.hgrRbSV6vnBwJMg9ZFtbx3rRu9mX_hZMZ_m5gMNhkw0";
@@ -11,12 +21,13 @@ const WS_HEADERS = {
 
 // Gói tin khởi tạo để đăng ký lắng nghe sự kiện từ Server
 const INIT_MSGS = [
-  [1,"MiniGame","GM_apivopnha","WangLin",{"info":"{\"ipAddress\":\"14.249.227.107\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiI5ODE5YW5zc3MiLCJib3QiOjAsImlzTWVyY2hhbnQiOmZhbHNlLCJ2ZXJpZmllZEJhbmtBY2NvdW50IjpmYWxzZSwicGxheUV2ZW50TG9iYnkiOmZhbHNlLCJjdXN0b21lcklkIjozMjMyODExNTEsImFmZklkIjoic3VuLndpbiIsImJhbm5lZCI6ZmFsc2UsImJyYW5kIjoiZ2VtIiwidGltZXN0YW1wIjoxNzYzMDMyOTI4NzcwLCJsb2NrR2FtZXMiOltdLCJhbW91bnQiOjAsImxvY2tDaGF0IjpmYWxzZSwicGhvbmVWZXJpZmllZCI6ZmFsc2UsImlwQWRkcmVzcyI6IjE0LjI0OS4yMjcuMTA3IiwibXV0ZSI6ZmFsc2UsImF2YXRhciI6Imh0dHBzOi8vaW1hZ2VzLnN3aW5zaG9wLm5ldC9pbWFnZXMvYXZhdGFyL2F2YXRhcl8wNS5wbmciLCJwbGF0Zm9ybUlkIjo0LCJ1c2VySWQiOiI4ODM4NTMzZS1kZTQzLTRiOGQtOTUwMy02MjFmNDA1MDUzNGUiLCJyZWdUaW1lIjoxNzYxNjMyMzAwNTc2LCJwaG9uZSI6IiIsImRlcG9zaXQiOmZhbHNlLCJ1c2VybmFtZSI6IkdNX2FwaXZvcG5oYSJ9.guH6ztJSPXUL1cU8QdMz8O1Sdy_SbxjSM-CDzWPTr-0\",\"locale\":\"vi\",\"userId\":\"8838533e-de43-4b8d-9503-621f4050534e\",\"username\":\"GM_apivopnha\",\"timestamp\":1763032928770,\"refreshToken\":\"e576b43a64e84f789548bfc7c4c8d1e5.7d4244a361e345908af95ee2e8ab2895\"}","signature":"45EF4B318C883862C36E1B189A1DF5465EBB60CB602BA05FAD8FCBFCD6E0DA8CB3CE65333EDD79A2BB4ABFCE326ED5525C7D971D9DEDB5A17A72764287FFE6F62CBC2DF8A04CD8EFF8D0D5AE27046947ADE45E62E644111EFDE96A74FEC635A97861A425FF2B5732D74F41176703CA10CFEED67D0745FF15EAC1065E1C8BCBFA"}],
+  [1, "MiniGame", "GM_apivopnha", "WangLin", {
+    "info": "{\"ipAddress\":\"14.249.227.107\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiI5ODE5YW5zc3MiLCJib3QiOjAsImlzTWVyY2hhbnQiOmZhbHNlLCJ2ZXJpZmllZEJhbmtBY2NvdW50IjpmYWxzZSwicGxheUV2ZW50TG9iYnkiOmZhbHNlLCJjdXN0b21lcklkIjozMjMyODExNTEsImFmZklkIjoic3VuLndpbiIsImJhbm5lZCI6ZmFsc2UsImJyYW5kIjoiZ2VtIiwidGltZXN0YW1wIjoxNzYzMDMyOTI4NzcwLCJsb2NrR2FtZXMiOltdLCJhbW91bnQiOjAsImxvY2tDaGF0IjpmYWxzZSwicGhvbmVWZXJpZmllZCI6ZmFsc2UsImlwQWRkcmVzcyI6IjE0LjI0OS4yMjcuMTA3IiwibXV0ZSI6ZmFsc2UsImF2YXRhciI6Imh0dHBzOi8vaW1hZ2VzLnN3aW5zaG9wLm5ldC9pbWFnZXMvYXZhdGFyL2F2YXRhcl8wNS5wbmciLCJwbGF0Zm9ybUlkIjo0LCJ1c2VySWQiOiI4ODM4NTMzZS1kZTQzLTRiOGQtOTUwMy02MjFmNDA1MDUzNGUiLCJyZWdUaW1lIjoxNzYxNjMyMzAwNTc2LCJwaG9uZSI6IiIsImRlcG9zaXQiOmZhbHNlLCJ1c2VybmFtZSI6IkdNX2FwaXZvcG5oYSJ9.guH6ztJSPXUL1cU8QdMz8O1Sdy_SbxjSM-CDzWPTr-0\",\"locale\":\"vi\",\"userId\":\"8838533e-de43-4b8d-9503-621f4050534e\",\"username\":\"GM_apivopnha\",\"timestamp\":1763032928770,\"refreshToken\":\"e576b43a64e84f789548bfc7c4c8d1e5.7d4244a361e345908af95ee2e8ab2895\"}",
+    "signature": "45EF4B318C883862C36E1B189A1DF5465EBB60CB602BA05FAD8FCBFCD6E0DA8CB3CE65333EDD79A2BB4ABFCE326ED5525C7D971D9DEDB5A17A72764287FFE6F62CBC2DF8A04CD8EFF8D0D5AE27046947ADE45E62E644111EFDE96A74FEC635A97861A425FF2B5732D74F41176703CA10CFEED67D0745FF15EAC1065E1C8BCBFA"
+  }],
   [6, "MiniGame", "taixiuPlugin", { cmd: 1005 }],
   [6, "MiniGame", "lobbyPlugin", { cmd: 10001 }]
 ];
-
-const TARGET_SECOND = parseInt(process.env.TARGET_SECOND) || 30; // Giây chốt dữ liệu (mặc định 30s)
 
 let ws = null;
 let pingInterval = null;
@@ -26,8 +37,9 @@ let staleTimer = null;
 // Quản lý dữ liệu phiên cược
 let currentSessionId = null;
 let localCountdown = 50; // Đếm ngược cục bộ bằng giây
-let isFrozen = false;
-let frozenSnapshots = new Map(); // Lưu snapshot tạm thời chờ kết quả: sessionId -> snapshotData
+let snapshotted30 = false;
+let snapshotted20 = false;
+let frozenSnapshots = new Map(); // Lưu snapshot tạm thời chờ kết quả: sessionId -> record
 
 function connectWS() {
   if (ws) {
@@ -39,9 +51,8 @@ function connectWS() {
   ws = new WebSocket(WS_URL, { headers: WS_HEADERS });
 
   ws.on('open', () => {
-    console.log('[✅] WebSocket Connected! Đang gửi các bản tin đăng ký...');
+    console.log('[✅] WebSocket Connected! Đang gửi bản tin đăng ký...');
     
-    // Gửi lần lượt các gói tin khởi tạo cách nhau 600ms
     INIT_MSGS.forEach((msg, i) => {
       setTimeout(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -50,17 +61,12 @@ function connectWS() {
       }, i * 600);
     });
 
-    // Cài đặt chu kỳ Ping/Pong
     clearInterval(pingInterval);
     pingInterval = setInterval(() => {
       if (ws && ws.readyState === WebSocket.OPEN) ws.ping();
     }, 10000);
 
     resetStaleTimer();
-  });
-
-  ws.on('pong', () => {
-    // console.log('[📶] Ping-Pong OK');
   });
 
   ws.on('message', (raw) => {
@@ -77,8 +83,18 @@ function connectWS() {
         currentSessionId = payload.sid;
         if (payload.rmT !== undefined) {
           localCountdown = Math.round(payload.rmT / 1000);
-          isFrozen = localCountdown < TARGET_SECOND; // Nếu thời gian còn lại đã qua giây chốt thì bỏ qua phiên này
-          console.log(`[🔄 Khởi tạo] Đồng bộ thành công. Phiên hiện tại #${currentSessionId}, giây còn lại: ${localCountdown}s`);
+          snapshotted30 = localCountdown < 30; // Bỏ qua mốc 30s nếu kết nối trễ
+          snapshotted20 = localCountdown < 20; // Bỏ qua mốc 20s nếu kết nối trễ
+          
+          // Khởi tạo bản ghi rỗng cho phiên hiện tại
+          if (!frozenSnapshots.has(currentSessionId)) {
+            frozenSnapshots.set(currentSessionId, {
+              phien: currentSessionId,
+              snap_30: null,
+              snap_20: null
+            });
+          }
+          console.log(`[🔄 Khởi tạo] Đồng bộ thành công. Phiên #${currentSessionId}, còn lại: ${localCountdown}s`);
         }
       }
 
@@ -86,17 +102,25 @@ function connectWS() {
       if (cmd === 1008 && payload.sid) {
         resetStaleTimer();
 
-        // Nếu chuyển sang phiên cược mới
+        // Phát hiện chuyển sang phiên cược mới
         if (payload.sid !== currentSessionId) {
           currentSessionId = payload.sid;
-          localCountdown = 50; // Phiên cược mới bắt đầu từ 50s
-          isFrozen = false;
+          localCountdown = 50;
+          snapshotted30 = false;
+          snapshotted20 = false;
+          
+          // Tạo bản ghi trống mới
+          frozenSnapshots.set(currentSessionId, {
+            phien: currentSessionId,
+            snap_30: null,
+            snap_20: null
+          });
           console.log(`[🎲 Phiên mới] #${currentSessionId} bắt đầu đếm ngược.`);
         } else {
           localCountdown--;
         }
 
-        // Chỉ xử lý chốt nếu gameInfo tồn tại (aid: 1 là Tài Xỉu chuẩn)
+        // Trích xuất số liệu cược (aid: 1 là Tài Xỉu chuẩn)
         if (payload.gi && payload.gi[0] && payload.gi[0].aid === 1) {
           const gameInfo = payload.gi[0];
           const taiMoney = gameInfo.B ? (gameInfo.B.tB || 0) : 0;
@@ -104,20 +128,33 @@ function connectWS() {
           const taiUsers = gameInfo.B ? (gameInfo.B.tU || 0) : 0;
           const xiuUsers = gameInfo.S ? (gameInfo.S.tU || 0) : 0;
 
-          // Chốt dữ liệu khi thời gian đếm ngược chạm mốc TARGET_SECOND
-          if (localCountdown === TARGET_SECOND && !isFrozen) {
-            isFrozen = true;
-            const snapshot = {
-              phien: currentSessionId,
-              giay_chot: TARGET_SECOND,
-              tien_tai: taiMoney,
-              tien_xiu: xiuMoney,
-              nguoi_tai: taiUsers,
-              nguoi_xiu: xiuUsers,
-              timestamp_chot: new Date().toISOString()
-            };
-            frozenSnapshots.set(currentSessionId, snapshot);
-            console.log(`[📌 CHỐT GIÂY ${TARGET_SECOND}] Phiên #${currentSessionId}: Tài ${taiMoney.toLocaleString()}đ (${taiUsers} ng) | Xỉu ${xiuMoney.toLocaleString()}đ (${xiuUsers} ng)`);
+          const record = frozenSnapshots.get(currentSessionId);
+          if (record) {
+            // Chốt dữ liệu ở giây thứ 30
+            if (localCountdown === 30 && !snapshotted30) {
+              snapshotted30 = true;
+              record.snap_30 = {
+                tien_tai: taiMoney,
+                tien_xiu: xiuMoney,
+                nguoi_tai: taiUsers,
+                nguoi_xiu: xiuUsers,
+                timestamp: new Date().toISOString()
+              };
+              console.log(`[📌 CHỐT 30s] Phiên #${currentSessionId} | Tài: ${taiMoney.toLocaleString()}đ / Xỉu: ${xiuMoney.toLocaleString()}đ`);
+            }
+
+            // Chốt dữ liệu ở giây thứ 20
+            if (localCountdown === 20 && !snapshotted20) {
+              snapshotted20 = true;
+              record.snap_20 = {
+                tien_tai: taiMoney,
+                tien_xiu: xiuMoney,
+                nguoi_tai: taiUsers,
+                nguoi_xiu: xiuUsers,
+                timestamp: new Date().toISOString()
+              };
+              console.log(`[📌 CHỐT 20s] Phiên #${currentSessionId} | Tài: ${taiMoney.toLocaleString()}đ / Xỉu: ${xiuMoney.toLocaleString()}đ`);
+            }
           }
         }
       }
@@ -134,7 +171,6 @@ function connectWS() {
 
         console.log(`[🎲 KẾT QUẢ] Phiên #${currentSessionId}: ${d1}-${d2}-${d3} = ${total} (${result})`);
 
-        // Khớp kết quả với snapshot đã chốt ở giây TARGET_SECOND
         if (currentSessionId && frozenSnapshots.has(currentSessionId)) {
           const record = frozenSnapshots.get(currentSessionId);
           record.ket_qua = result;
@@ -142,10 +178,10 @@ function connectWS() {
           record.tong_diem = total;
           record.timestamp_ket_qua = new Date().toISOString();
 
-          // Lưu kết quả hoàn chỉnh xuống file JSON
+          // Lưu bản ghi hoàn chỉnh chứa cả 2 mốc 30s, 20s và Kết quả
           saveCompletedRecord(record);
           
-          // Giải phóng bộ nhớ tạm
+          // Xóa khỏi map tạm thời
           frozenSnapshots.delete(currentSessionId);
         }
       }
@@ -156,7 +192,7 @@ function connectWS() {
   });
 
   ws.on('close', (code) => {
-    console.log(`[🔌] Kết nối bị đóng (Code: ${code}). Đang thử kết nối lại sau 2.5 giây...`);
+    console.log(`[🔌] Kết nối bị đóng (Code: ${code}). Kết nối lại sau 2.5s...`);
     cleanup();
     reconnectTimeout = setTimeout(connectWS, 2500);
   });
@@ -169,7 +205,6 @@ function connectWS() {
 
 function resetStaleTimer() {
   clearTimeout(staleTimer);
-  // Nếu quá 90 giây không nhận được gói tin từ game, tự ngắt để Reconnect
   staleTimer = setTimeout(() => {
     console.log('[⚠️] Không nhận được cập nhật từ Server trong 90s, tiến hành Reconnect...');
     if (ws) ws.close();
@@ -182,15 +217,53 @@ function cleanup() {
   clearTimeout(reconnectTimeout);
 }
 
-// Lưu bản ghi hoàn chỉnh vào file JSON
+// Lưu bản ghi hoàn chỉnh chứa cả snap_30, snap_20 và kết quả
 function saveCompletedRecord(record) {
   const filePath = path.join(__dirname, 'taixiu_data_history.json');
-  console.log(`[💾 LƯU BẢN GHI] Phiên #${record.phien} | Chốt: T:${record.tien_tai.toLocaleString()}đ / X:${record.tien_xiu.toLocaleString()}đ | Kết quả: ${record.ket_qua} (${record.xuc_xac})`);
+  
+  // Format log đẹp mắt cho Railway console
+  const t30 = record.snap_30 ? `T:${record.snap_30.tien_tai.toLocaleString()} / X:${record.snap_30.tien_xiu.toLocaleString()}` : 'N/A';
+  const t20 = record.snap_20 ? `T:${record.snap_20.tien_tai.toLocaleString()} / X:${record.snap_20.tien_xiu.toLocaleString()}` : 'N/A';
+  
+  console.log(`[💾 LƯU BẢN GHI] Phiên #${record.phien} | 30s cược: [${t30}] | 20s cược: [${t20}] | Kết quả: ${record.ket_qua} (${record.xuc_xac})`);
 
   fs.appendFile(filePath, JSON.stringify(record) + '\n', (err) => {
     if (err) console.error('[❌] Lỗi ghi file lịch sử:', err.message);
   });
 }
 
-// Bắt đầu chạy bot
-connectWS();
+// ===== API ENDPOINTS =====
+
+// Lấy lịch sử dữ liệu thu thập được chứa cả mốc 30s, 20s và kết quả
+app.get('/api/history', (req, res) => {
+  const filePath = path.join(__dirname, 'taixiu_data_history.json');
+  if (!fs.existsSync(filePath)) {
+    return res.json([]);
+  }
+  
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) return res.status(500).json({ error: 'Lỗi đọc file lịch sử' });
+    const lines = data.trim().split('\n').filter(Boolean);
+    const records = lines.map(line => {
+      try { return JSON.parse(line); } catch (e) { return null; }
+    }).filter(Boolean);
+    
+    // Trả về danh sách mới nhất ở đầu
+    res.json(records.reverse());
+  });
+});
+
+app.get('/', (req, res) => {
+  res.json({
+    name: "Sunwin Double Snapshot Data Collector",
+    status: "running",
+    endpoints: {
+      history: "/api/history"
+    }
+  });
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[🌐] API Server đang chạy tại http://0.0.0.0:${PORT}`);
+  connectWS();
+});
