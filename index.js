@@ -219,7 +219,7 @@ function cleanup() {
 
 // Lưu bản ghi hoàn chỉnh chứa cả snap_30, snap_20 và kết quả
 function saveCompletedRecord(record) {
-  const filePath = path.join(__dirname, 'taixiu_data_history.json');
+  const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
   
   // Format log đẹp mắt cho Railway console
   const t30 = record.snap_30 ? `T:${record.snap_30.tien_tai.toLocaleString()} / X:${record.snap_30.tien_xiu.toLocaleString()}` : 'N/A';
@@ -236,7 +236,7 @@ function saveCompletedRecord(record) {
 
 // Lấy lịch sử dữ liệu thu thập được chứa cả mốc 30s, 20s và kết quả
 app.get('/api/history', (req, res) => {
-  const filePath = path.join(__dirname, 'taixiu_data_history.json');
+  const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
   if (!fs.existsSync(filePath)) {
     return res.json([]);
   }
