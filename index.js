@@ -2,7 +2,7 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 
-// Cấu hình WebSocket lấy từ thư mục test hoạt động 24/7 ổn định
+// Cấu hình WebSocket JSON từ thư mục test hoạt động 24/7 ổn định
 const WS_URL = "wss://websocket.azhkthg1.net/websocket?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhbW91bnQiOjAsInVzZXJuYW1lIjoiU0NfYXBpc3Vud2luMTIzIn0.hgrRbSV6vnBwJMg9ZFtbx3rRu9mX_hZMZ_m5gMNhkw0";
 const WS_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
@@ -12,7 +12,7 @@ const WS_HEADERS = {
 // Gói tin khởi tạo để đăng ký lắng nghe sự kiện từ Server
 const INIT_MSGS = [
   [1, "MiniGame", "GM_apivopnha", "WangLin", {
-    "info": "{\"ipAddress\":\"14.249.227.107\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiI5ODE5YW5zc3MiLCJib3QiOjAsImlzTWVyY2hhbnQiOmZhbHNlLCJ2ZXJpZmllZEJhbmtBY2NvdW50IjpmYWxzZSwicGxheUV2ZW50TG9iYnkiOmZhbHNlLCJjdXN0b21lcklkIjozMjMyODExNTEsImFmZklkIjoic3VuLndpbiIsImJhbm5lZCI6ZmFsc2UsImJyYW5kIjoiZ2VtIiwidGltZXN0YW1wIjoxNzYzMDMyOTI4NzcwLCJsb2NrR2FtZXMiOltdLCJhbW91bnQiOjAsImxvY2tDaGF0IjpmYWxzZSwicGhvbmVWZXJpZmllZCI6ZmFsc2UsImlwQWRkcmVzcyI6IjE0LjI0OS4yMjcuMTA3IiwibXV0ZSI6ZmFsc2UsImF2YXRhciI6Imh0dHBzOi8vaW1hZ2VzLnN3aW5zaG9wLm5ldC9pbWFnZXMvYXZhdGFyL2F2YXRhcl8wNS5wbmciLCJwbGF0Zm9ybUlkIjo0LCJ1c2VySWQiOiI4ODM4NTMzZS1kZTQzLTRiOGQtOTUwMy02MjFmNDA1MDUzNGUiLCJyZWdUaW1lIjoxNzYxNjMyMzAwNTc2LCJwaG9uZSI6IiIsImRlcG9zaXQiOmZhbHNlLCJ1c2VybmFtZSI6IkdNX2FwaXZvcG5oYSJ9.guH6ztJSPXUL1cU8QdMz8O1Sdy_SbxjSM-CDzWPTr-0\",\"locale\":\"vi\",\"userId\":\"8838533e-de43-4b8d-9503-621f4050534e\",\"username\":\"GM_apivopnha\",\"timestamp\":1763032928770,\"refreshToken\":\"e576b43a64e84f789548bfc7c4c8d1e5.7d4244a361e345908af95ee2e8ab2895\"}",
+    "info": "{\"ipAddress\":\"14.249.227.107\",\"wsToken\":\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJnZW5kZXIiOjAsImNhblZpZXdTdGF0IjpmYWxzZSwiZGlzcGxheU5hbWUiOiI5ODE5YW5zc3MiLCJib3QiOjAsImlzTWVyY2hhbnQiOmZhbHNlLCJ2ZXJpZmllZEJhbmtBY2NvdW50IjpmYWxzZSwicGxheUV2ZW50TG9iYnkiOmZhbHNlLCJjdXN0b21lcklkIjozMjMyODExNTEsImFmZklkIjoic3VuLndpbiIsImJhbm5lZCI6ZmFsc2UsImJyYW5kIjoiZ2VtIiwidGltZXN0YW1wIjoxNzYzMDMyOTI4NzcwLCJsb2NrR2FtZXMiOltdLCJhbW91bnQiOjAsImxvY2tDaGF0IjpmYWxzZSwicGhvbmVWZXJpZmllZCI6ZmFsc2UsImlwQWRkcmVzcyI6IjE0LjI0OS}\",\"locale\":\"vi\",\"userId\":\"8838533e-de43-4b8d-9503-621f4050534e\",\"username\":\"GM_apivopnha\",\"timestamp\":1763032928770,\"refreshToken\":\"e576b43a64e84f789548bfc7c4c8d1e5.7d4244a361e345908af95ee2e8ab2895\"}",
     "signature": "45EF4B318C883862C36E1B189A1DF5465EBB60CB602BA05FAD8FCBFCD6E0DA8CB3CE65333EDD79A2BB4ABFCE326ED5525C7D971D9DEDB5A17A72764287FFE6F62CBC2DF8A04CD8EFF8D0D5AE27046947ADE45E62E644111EFDE96A74FEC635A97861A425FF2B5732D74F41176703CA10CFEED67D0745FF15EAC1065E1C8BCBFA"
   }],
   [6, "MiniGame", "taixiuPlugin", { cmd: 1005 }],
@@ -28,6 +28,8 @@ let staleTimer = null;
 
 // Quản lý dữ liệu phiên cược
 let currentSessionId = null;
+let localCountdown = 50; // Đếm ngược cục bộ bằng giây
+let isFrozen = false;
 let frozenSnapshots = new Map(); // Lưu snapshot tạm thời chờ kết quả: sessionId -> snapshotData
 
 function connectWS() {
@@ -57,7 +59,6 @@ function connectWS() {
       if (ws && ws.readyState === WebSocket.OPEN) ws.ping();
     }, 10000);
 
-    // Cài đặt Stale Timer đề phòng nghẽn mạng
     resetStaleTimer();
   });
 
@@ -68,37 +69,47 @@ function connectWS() {
   ws.on('message', (raw) => {
     try {
       const text = raw.toString();
-      // Log toàn bộ tin nhắn nhận được để phân tích cấu trúc
-      console.log(`[📩 NHẬN TIN NHẮN THÔ]: ${text}`);
-
       const data = JSON.parse(text);
       if (!Array.isArray(data) || typeof data[1] !== 'object') return;
       
       const payload = data[1];
       const cmd = payload.cmd;
 
-      // In toàn bộ gói tin để phân tích nếu cần cấu trúc các trường ẩn
-      // console.log("Gói tin:", JSON.stringify(payload));
-
-      // 1. Cập nhật mã phiên cược hiện tại (Mã 1008 hoặc từ các cập nhật khác)
-      if (payload.sid) {
+      // 1. Đồng bộ ban đầu khi nhận lịch sử phiên (cmd: 1005)
+      if (cmd === 1005 && payload.sid) {
         currentSessionId = payload.sid;
+        if (payload.rmT !== undefined) {
+          localCountdown = Math.round(payload.rmT / 1000);
+          isFrozen = localCountdown < TARGET_SECOND; // Nếu thời gian còn lại đã qua giây chốt thì bỏ qua phiên này
+          console.log(`[🔄 Khởi tạo] Đồng bộ thành công. Phiên hiện tại #${currentSessionId}, giây còn lại: ${localCountdown}s`);
+        }
       }
 
-      // 2. Lắng nghe trạng thái đếm ngược và số liệu tiền cược
-      // cmd: 1001, 1002 hoặc các cập nhật trạng thái khác có chứa thời gian và tiền cược
-      if (cmd && (cmd === 1001 || cmd === 1002 || payload.time !== undefined || payload.remainTimeToBetting !== undefined)) {
+      // 2. Lắng nghe cập nhật giây đếm ngược theo thời gian thực (cmd: 1008)
+      if (cmd === 1008 && payload.sid) {
         resetStaleTimer();
 
-        const time = payload.time !== undefined ? payload.time : payload.remainTimeToBetting;
-        const taiMoney = payload.tai !== undefined ? payload.tai : (payload.currentTaiMoney || 0);
-        const xiuMoney = payload.xiu !== undefined ? payload.xiu : (payload.currentXiuMoney || 0);
-        const taiUsers = payload.numTai !== undefined ? payload.numTai : (payload.taiPlayersCount || 0);
-        const xiuUsers = payload.numXiu !== undefined ? payload.numXiu : (payload.xiuPlayersCount || 0);
+        // Nếu chuyển sang phiên cược mới
+        if (payload.sid !== currentSessionId) {
+          currentSessionId = payload.sid;
+          localCountdown = 50; // Phiên cược mới bắt đầu từ 50s
+          isFrozen = false;
+          console.log(`[🎲 Phiên mới] #${currentSessionId} bắt đầu đếm ngược.`);
+        } else {
+          localCountdown--;
+        }
 
-        // Chốt dữ liệu khi thời gian đếm ngược chạm mốc TARGET_SECOND
-        if (time === TARGET_SECOND && currentSessionId) {
-          if (!frozenSnapshots.has(currentSessionId)) {
+        // Chỉ xử lý chốt nếu gameInfo tồn tại (aid: 1 là Tài Xỉu chuẩn)
+        if (payload.gi && payload.gi[0] && payload.gi[0].aid === 1) {
+          const gameInfo = payload.gi[0];
+          const taiMoney = gameInfo.B ? (gameInfo.B.tB || 0) : 0;
+          const xiuMoney = gameInfo.S ? (gameInfo.S.tB || 0) : 0;
+          const taiUsers = gameInfo.B ? (gameInfo.B.tU || 0) : 0;
+          const xiuUsers = gameInfo.S ? (gameInfo.S.tU || 0) : 0;
+
+          // Chốt dữ liệu khi thời gian đếm ngược chạm mốc TARGET_SECOND
+          if (localCountdown === TARGET_SECOND && !isFrozen) {
+            isFrozen = true;
             const snapshot = {
               phien: currentSessionId,
               giay_chot: TARGET_SECOND,
@@ -124,24 +135,21 @@ function connectWS() {
         const total = d1 + d2 + d3;
         const result = total > 10 ? 'Tài' : 'Xỉu';
 
-        // Lấy lại phiên cược vừa kết thúc (nếu payload.sid không có thì lấy currentSessionId)
-        const finishedSession = payload.sid || currentSessionId;
+        console.log(`[🎲 KẾT QUẢ] Phiên #${currentSessionId}: ${d1}-${d2}-${d3} = ${total} (${result})`);
 
-        console.log(`[🎲 KẾT QUẢ] Phiên #${finishedSession}: ${d1}-${d2}-${d3} = ${total} (${result})`);
-
-        // Khớp kết quả với snapshot đã chốt ở giây 30
-        if (finishedSession && frozenSnapshots.has(finishedSession)) {
-          const record = frozenSnapshots.get(finishedSession);
+        // Khớp kết quả với snapshot đã chốt ở giây TARGET_SECOND
+        if (currentSessionId && frozenSnapshots.has(currentSessionId)) {
+          const record = frozenSnapshots.get(currentSessionId);
           record.ket_qua = result;
           record.xuc_xac = `${d1}-${d2}-${d3}`;
           record.tong_diem = total;
           record.timestamp_ket_qua = new Date().toISOString();
 
-          // Lưu kết quả hoàn chỉnh
+          // Lưu kết quả hoàn chỉnh xuống file JSON
           saveCompletedRecord(record);
           
-          // Xóa khỏi map tạm thời
-          frozenSnapshots.delete(finishedSession);
+          // Giải phóng bộ nhớ tạm
+          frozenSnapshots.delete(currentSessionId);
         }
       }
 
@@ -164,7 +172,7 @@ function connectWS() {
 
 function resetStaleTimer() {
   clearTimeout(staleTimer);
-  // Nếu quá 90 giây không nhận được gói tin thời gian nào từ game, tự ngắt để Reconnect
+  // Nếu quá 90 giây không nhận được gói tin từ game, tự ngắt để Reconnect
   staleTimer = setTimeout(() => {
     console.log('[⚠️] Không nhận được cập nhật từ Server trong 90s, tiến hành Reconnect...');
     if (ws) ws.close();
@@ -180,8 +188,6 @@ function cleanup() {
 // Lưu bản ghi hoàn chỉnh vào file JSON
 function saveCompletedRecord(record) {
   const filePath = path.join(__dirname, 'taixiu_data_history.json');
-  
-  // Format log hiển thị ra console của Railway
   console.log(`[💾 LƯU BẢN GHI] Phiên #${record.phien} | Chốt: T:${record.tien_tai.toLocaleString()}đ / X:${record.tien_xiu.toLocaleString()}đ | Kết quả: ${record.ket_qua} (${record.xuc_xac})`);
 
   fs.appendFile(filePath, JSON.stringify(record) + '\n', (err) => {
@@ -189,5 +195,5 @@ function saveCompletedRecord(record) {
   });
 }
 
-// Bắt đầu kết nối
+// Bắt đầu chạy bot
 connectWS();
