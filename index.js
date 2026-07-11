@@ -6,9 +6,11 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(express.json());
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   next();
 });
 
@@ -347,6 +349,67 @@ function saveCompletedRecord(record) {
 }
 
 // ===== API ENDPOINTS =====
+
+// Thêm endpoint nhận đồng bộ kết quả từ trình duyệt
+app.post('/api/sync-result', (req, res) => {
+  const { phien, ket_qua, xuc_xac, tong_diem, du_doan } = req.body;
+  if (!phien || !ket_qua) {
+    return res.status(400).json({ error: 'Thiếu thông tin phiên hoặc kết quả' });
+  }
+
+  const sessId = parseInt(phien);
+  console.log(`[🔄 SYNC-RESULT] Nhận đồng bộ phiên #${sessId}: ${ket_qua} (${xuc_xac || ''})`);
+
+  // Tìm trong snap tạm thời hoặc tạo mới record
+  let record = frozenSnapshots.get(sessId);
+  if (!record) {
+    // Tìm trong file lịch sử xem đã có chưa
+    const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
+    let existed = false;
+    if (fs.existsSync(filePath)) {
+      try {
+        const data = fs.readFileSync(filePath, 'utf8');
+        if (data.includes(`"phien":${sessId}`)) {
+          existed = true;
+        }
+      } catch (e) {}
+    }
+
+    if (existed) {
+      return res.json({ status: 'existed', consecLosses });
+    }
+
+    record = {
+      phien: sessId,
+      snap_30: null,
+      snap_20: null
+    };
+  }
+
+  record.ket_qua = ket_qua;
+  if (xuc_xac) record.xuc_xac = xuc_xac;
+  if (tong_diem) record.tong_diem = parseInt(tong_diem);
+  record.timestamp_ket_qua = new Date().toISOString();
+
+  // Đánh giá dự đoán để cập nhật chuỗi thua consecLosses
+  const predToCompare = record.du_doan || du_doan;
+  if (predToCompare) {
+    record.du_doan = predToCompare;
+    if (predToCompare === ket_qua) {
+      console.log(`[🎯 SYNC] Dự đoán phiên #${sessId} ĐÚNG. Reset chuỗi thua.`);
+      consecLosses = 0;
+    } else {
+      consecLosses++;
+      console.log(`[❌ SYNC] Dự đoán phiên #${sessId} SAI. Chuỗi thua hiện tại: ${consecLosses}`);
+    }
+  }
+
+  saveCompletedRecord(record);
+  prevSessionRecord = record;
+  frozenSnapshots.delete(sessId);
+
+  res.json({ status: 'ok', consecLosses });
+});
 
 // Lấy dự đoán của phiên hiện tại (tính toán ở giây 20 đếm ngược)
 app.get('/api/prediction', (req, res) => {
