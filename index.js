@@ -415,8 +415,51 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
 
     addServerLog("⏳ Đăng nhập hoàn tất, đang chờ game chuyển tiếp tải chính thức...");
     await new Promise(r => setTimeout(r, 15000));
-    addServerLog("🎮 Game đã load xong! Đang chờ bạn mở bảng cược Tài Xỉu...");
 
+    addServerLog("🎮 Đang tự động tìm và mở bảng cược Tài Xỉu...");
+    await activePage.evaluate(() => {
+      try {
+        const scene = cc.director.getScene();
+        const findNodeByName = (node, targetName) => {
+          if (!node) return null;
+          if (node.name === targetName) return node;
+          for (const child of (node.children || [])) {
+            const r = findNodeByName(child, targetName);
+            if (r) return r;
+          }
+          return null;
+        };
+
+        const forceClickCocosNode = (node) => {
+          if (!node) return;
+          const trigger = (target) => {
+            if (!target) return;
+            try { target.emit('click', target); } catch(e) {}
+            try {
+              target.emit(cc.Node.EventType.TOUCH_START);
+              target.emit(cc.Node.EventType.TOUCH_END);
+            } catch(e) {}
+            const comps = target._components || target.components || [];
+            for (const c of comps) {
+              if (c && c.clickEvents && c.clickEvents.length > 0) {
+                try { cc.Component.EventHandler.emitEvents(c.clickEvents, {}); } catch(e) {}
+              }
+            }
+          };
+          trigger(node);
+          for (const child of (node.children || [])) {
+            trigger(child);
+          }
+        };
+
+        const btnTaiXiu = findNodeByName(scene, "taixiu");
+        if (btnTaiXiu) forceClickCocosNode(btnTaiXiu);
+      } catch(e) {}
+    });
+
+    await new Promise(r => setTimeout(r, 2000));
+
+    addServerLog("🎲 Đang chờ bảng cược Tài Xỉu đồng bộ dữ liệu...");
     let txReady = false;
     for (let i = 0; i < 60; i++) {
       txReady = await activePage.evaluate(() => {
