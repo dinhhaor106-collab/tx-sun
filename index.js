@@ -163,18 +163,30 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     activePage = await activeBrowser.newPage();
     await activePage.setViewport({ width: 1280, height: 720 });
 
+    // Đăng ký bắt lỗi console từ trình duyệt ảo
+    activePage.on('console', msg => {
+      addServerLog(`[BROWSER CONSOLE] ${msg.text()}`);
+    });
+    activePage.on('pageerror', err => {
+      addServerLog(`[BROWSER ERROR] ${err.toString()}`);
+    });
+
     addServerLog("🧭 Đang truy cập trang chủ game Sunwin...");
-    await activePage.goto('https://web.sunwin.best/?affId=Sunwin', { waitUntil: 'networkidle2', timeout: 60000 });
+    await activePage.goto('https://web.sunwin.best/?affId=Sunwin', { waitUntil: 'load', timeout: 60000 });
+
+    addServerLog(`🔗 Địa chỉ thực tế của trang: ${activePage.url()}`);
 
     addServerLog("🔍 Đang kiểm tra giao diện trang chủ...");
     await activePage.evaluate(() => {
       const clickLandingBtn = () => {
         const elList = Array.from(document.querySelectorAll('a, button, div, span'));
+        console.log(`[BOT] Tìm thấy ${elList.length} phần tử HTML trên landing page.`);
         const targetBtn = elList.find(el => {
           const txt = el.textContent.trim().toLowerCase();
           return txt.includes('chơi nhanh bản web') || txt.includes('bản web') || txt.includes('chơi trên web') || txt.includes('web game') || txt.includes('vào game');
         });
         if (targetBtn) {
+          console.log(`[BOT] Phát hiện nút chuyển game: "${targetBtn.textContent.trim()}". Tiến hành click...`);
           targetBtn.click();
           return true;
         }
@@ -189,20 +201,47 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     let ccReady = false;
     let activeFrame = activePage;
     for (let i = 0; i < 60; i++) {
-      for (const frame of activePage.frames()) {
-        const hasCC = await frame.evaluate(() => {
-          try { return !!(window.cc && cc.director && cc.director.getScene()); } catch(e) { return false; }
+      const allFrames = activePage.frames();
+      if (i % 10 === 0) {
+        addServerLog(`ℹ️ [Chu kỳ ${i}] Tổng số frames đang chạy trong trang: ${allFrames.length}`);
+        allFrames.forEach((f, idx) => {
+          addServerLog(`   - Frame ${idx + 1}: URL = "${f.url()}"`);
         });
-        if (hasCC) {
-          ccReady = true;
-          activeFrame = frame;
-          break;
+      }
+      
+      for (const frame of allFrames) {
+        const checkRes = await frame.evaluate(() => {
+          try {
+            return {
+              hasCC: !!(window.cc),
+              hasScene: !!(window.cc && cc.director && cc.director.getScene()),
+              url: window.location.href
+            };
+          } catch(e) {
+            return { hasCC: false, hasScene: false, error: e.message };
+          }
+        });
+        
+        if (checkRes.hasCC) {
+          addServerLog(`🎯 Phát hiện window.cc trong frame: "${checkRes.url}". Có scene: ${checkRes.hasScene}`);
+          if (checkRes.hasScene) {
+            ccReady = true;
+            activeFrame = frame;
+            break;
+          }
         }
       }
       if (ccReady) break;
       await new Promise(r => setTimeout(r, 1000));
     }
-    if (!ccReady) throw new Error("Không thể tải engine game. Vui lòng kiểm tra lại đường truyền.");
+    if (!ccReady) {
+      // Chụp màn hình lỗi lưu lại để kiểm tra giao diện hiện tại
+      const pubDir = path.join(__dirname, 'public');
+      if (!fs.existsSync(pubDir)) fs.mkdirSync(pubDir, { recursive: true });
+      await activePage.screenshot({ path: path.join(pubDir, 'error_screen.png') });
+      addServerLog("📸 Đã chụp màn hình lỗi lưu vào thư mục public/error_screen.png");
+      throw new Error("Không thể tải engine game. Vui lòng kiểm tra lại đường truyền.");
+    }
     addServerLog(`🎮 Đã tìm thấy Engine Cocos tại Frame: "${activeFrame === activePage ? 'Trang chính' : activeFrame.url()}"`);
 
     addServerLog("🔑 Đang kích hoạt nút Đăng nhập trên Header...");
