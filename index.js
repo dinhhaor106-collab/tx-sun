@@ -177,25 +177,30 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     addServerLog(`🔗 Địa chỉ thực tế của trang: ${activePage.url()}`);
 
     addServerLog("🔍 Đang kiểm tra giao diện trang chủ...");
-    await activePage.evaluate(() => {
-      const clickLandingBtn = () => {
-        const elList = Array.from(document.querySelectorAll('a, button, div, span'));
-        console.log(`[BOT] Tìm thấy ${elList.length} phần tử HTML trên landing page.`);
-        const targetBtn = elList.find(el => {
-          const txt = el.textContent.trim().toLowerCase();
-          return txt.includes('chơi nhanh bản web') || txt.includes('bản web') || txt.includes('chơi trên web') || txt.includes('web game') || txt.includes('vào game');
-        });
-        if (targetBtn) {
-          console.log(`[BOT] Phát hiện nút chuyển game: "${targetBtn.textContent.trim()}". Tiến hành click...`);
-          targetBtn.click();
-          return true;
-        }
-        return false;
-      };
-      clickLandingBtn();
-      setTimeout(clickLandingBtn, 1000);
-      setTimeout(clickLandingBtn, 2500);
+    const buttonSelector = await activePage.evaluate(() => {
+      const elList = Array.from(document.querySelectorAll('a, button, div, span'));
+      console.log(`[BOT] Tìm thấy ${elList.length} phần tử HTML trên landing page.`);
+      const targetBtn = elList.find(el => {
+        const txt = el.textContent.trim().toLowerCase();
+        return txt.includes('chơi nhanh bản web') || txt.includes('bản web') || txt.includes('chơi trên web') || txt.includes('web game') || txt.includes('vào game');
+      });
+      if (targetBtn) {
+        console.log(`[BOT] Phát hiện nút chuyển game: "${targetBtn.textContent.trim()}". Gán ID click...`);
+        targetBtn.id = 'bot-landing-btn';
+        return '#bot-landing-btn';
+      }
+      return null;
     });
+
+    if (buttonSelector) {
+      addServerLog("🎯 Tiến hành click chuột thật (Puppeteer native click)...");
+      await activePage.click(buttonSelector);
+      // Chờ 1s và click dự phòng lại lần nữa nếu cần
+      await new Promise(r => setTimeout(r, 1000));
+      try { await activePage.click(buttonSelector); } catch(e) {}
+    } else {
+      addServerLog("⚠️ Không tìm thấy nút chuyển game ngoài Landing page.");
+    }
 
     addServerLog("⏳ Đang chờ hệ thống game tải (Cocos Creator Engine)...");
     let ccReady = false;
