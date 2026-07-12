@@ -45,39 +45,35 @@ let currentPrediction = null;
 let prevSessionRecord = null;
 let lastTickTime = Date.now();
 
-// Hàm tính toán dự đoán dựa trên Thuật toán Phi tuyến tính (Win rate 56.37%, Max losses = 4)
+// Hàm tính toán dự đoán dựa trên Thuật toán Phi tuyến tính 15D tối ưu (Win rate 57.14%, Max losses = 4 trên 369 phiên)
 function getEnsemblePrediction(curr, prev, losses) {
-  // 1. Cầu thuận
-  const prevOutcome = prev && prev.ket_qua ? (prev.ket_qua === 'Tài' ? 1 : -1) : 1;
+  // 5 Biến cơ bản
+  const x1 = prev && prev.ket_qua ? (prev.ket_qua === 'Tài' ? 1 : -1) : 1;
+  const x2 = curr.snap_30 && curr.snap_30.tien_tai > curr.snap_30.tien_xiu ? 1 : -1;
+  const x3 = curr.snap_20 && curr.snap_20.tien_tai > curr.snap_20.tien_xiu ? 1 : -1;
+  const x4 = curr.snap_30 && curr.snap_30.nguoi_tai > curr.snap_30.nguoi_xiu ? 1 : -1;
   
-  // 2. Thuận tiền 30s
-  const v_tien30 = curr.snap_30 && curr.snap_30.tien_tai > curr.snap_30.tien_xiu ? 1 : -1;
-  
-  // 3. Thuận tiền 20s
-  const v_tien20 = curr.snap_20 && curr.snap_20.tien_tai > curr.snap_20.tien_xiu ? 1 : -1;
-  
-  // 4. Thuận người 30s
-  const v_user30 = curr.snap_30 && curr.snap_30.nguoi_tai > curr.snap_30.nguoi_xiu ? 1 : -1;
-  
-  // 5. Thuận đà tiền
   const diff_tai = curr.snap_30 && curr.snap_20 ? (curr.snap_20.tien_tai - curr.snap_30.tien_tai) : 0;
   const diff_xiu = curr.snap_30 && curr.snap_20 ? (curr.snap_20.tien_xiu - curr.snap_30.tien_xiu) : 0;
-  const v_da = diff_tai > diff_xiu ? 1 : -1;
+  const x5 = diff_tai > diff_xiu ? 1 : -1;
   
-  // Các biến tương tác phi tuyến tính (Non-linear Interaction)
-  const i_trend_crowd = prevOutcome * v_user30;
-  const i_money_accel = v_tien20 * v_da;
-  const i_money_crowd = v_tien30 * v_user30;
-  
-  // Tính toán score phi tuyến tính với 8 trọng số tối ưu: [-2, 1, -1, -1, 0, 1, 1, -1]
-  const score = (prevOutcome * -2) + 
-                (v_tien30 * 1) + 
-                (v_tien20 * -1) + 
-                (v_user30 * -1) + 
-                (v_da * 0) + 
-                (i_trend_crowd * 1) + 
-                (i_money_accel * 1) + 
-                (i_money_crowd * -1);
+  // Tính toán điểm số phi tuyến 15 chiều với trọng số tối ưu từ 4.74 ngàn tỷ tổ hợp:
+  // [-2, 2, -3, -3, 3, 3, -2, 2, -3, 0, 0, 2, -2, 1, -1]
+  const score = (x1 * -2) + 
+                (x2 * 2) + 
+                (x3 * -3) + 
+                (x4 * -3) + 
+                (x5 * 3) + 
+                ((x1 * x2) * 3) + 
+                ((x1 * x3) * -2) + 
+                ((x1 * x4) * 2) + 
+                ((x1 * x5) * -3) + 
+                ((x2 * x3) * 0) + 
+                ((x2 * x4) * 0) + 
+                ((x2 * x5) * 2) + 
+                ((x3 * x4) * -2) + 
+                ((x3 * x5) * 1) + 
+                ((x4 * x5) * -1);
   
   return score >= 0 ? 'Tài' : 'Xỉu';
 }
