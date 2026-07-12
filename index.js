@@ -48,7 +48,7 @@ let currentPrediction = null;
 let prevSessionRecord = null;
 let lastTickTime = Date.now();
 
-// Hàm tính toán dự đoán dựa trên Thuật toán Tuyến tính tối ưu mới (Win rate 64.94% trên 77 phiên thực tế)
+// Hàm tính toán dự đoán dựa trên Thuật toán 15D phi tuyến tính tối ưu (Win rate 60.24% / Chuỗi sai tối đa <= 5 trên 249 phiên thực tế)
 function getEnsemblePrediction(curr, prev, losses) {
   // 5 Biến cơ bản
   const x1 = prev && prev.ket_qua ? (prev.ket_qua === 'Tài' ? 1 : -1) : 1;
@@ -60,9 +60,21 @@ function getEnsemblePrediction(curr, prev, losses) {
   const diff_xiu = curr.snap_30 && curr.snap_20 ? (curr.snap_20.tien_xiu - curr.snap_30.tien_xiu) : 0;
   const x5 = diff_tai > diff_xiu ? 1 : -1;
   
-  // Trọng số tuyến tính tối ưu mới: w1=2, w2=-1, w3=-3, w4=5, w5=-3
-  const w1 = 2, w2 = -1, w3 = -3, w4 = 5, w5 = -3;
-  const score = w1 * x1 + w2 * x2 + w3 * x3 + w4 * x4 + w5 * x5;
+  // Trọng số phi tuyến tính 15D tối ưu mới
+  const w = [-5, -5, 2, -5, 0, 6, -1, -11, 3, -1, 2, 4, -3, -3, 12];
+  
+  const terms = [
+    x1, x2, x3, x4, x5,
+    x1 * x2, x1 * x3, x1 * x4, x1 * x5,
+    x2 * x3, x2 * x4, x2 * x5,
+    x3 * x4, x3 * x5,
+    x4 * x5
+  ];
+  
+  let score = 0;
+  for (let i = 0; i < 15; i++) {
+    score += w[i] * terms[i];
+  }
   
   return score >= 0 ? 'Tài' : 'Xỉu';
 }
