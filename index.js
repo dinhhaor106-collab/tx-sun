@@ -321,70 +321,83 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     }
     addServerLog(`🎮 Đã tìm thấy Engine Cocos tại Frame: "${activeFrame === activePage ? 'Trang chính' : activeFrame.url()}"`);
 
-    addServerLog("🔑 Đang kích hoạt nút Đăng nhập trên Header...");
-    const headerClickResult = await activeFrame.evaluate(() => {
-      try {
-        const scene = cc.director.getScene();
-        if (!scene) return "Không tìm thấy scene";
-        
-        const findHeaderLoginBtn = (root) => {
-          const found = [];
-          const search = (node) => {
-            if (!node) return;
-            const nameLower = (node.name || "").toLowerCase();
-            if (nameLower === "btn_login" || nameLower === "btn_dangnhap" || nameLower === "login_btn") {
-              found.push(node);
-            }
-            for (const child of (node.children || [])) search(child);
-          };
-          search(root);
+    addServerLog("🔑 Đang tìm nút Đăng nhập trên Header (chờ tối đa 15s)...");
+    let btnHeaderFound = false;
+    for (let attempt = 0; attempt < 15; attempt++) {
+      const headerClickResult = await activeFrame.evaluate(() => {
+        try {
+          const scene = cc.director.getScene();
+          if (!scene) return { success: false, msg: "Không tìm thấy scene" };
           
-          // Ưu tiên nút có cha là unlogged_in_node hoặc đang active trong hierarchy
-          const activeBtn = found.find(n => {
-            let curr = n;
-            while(curr) {
-              if (curr.active === false) return false;
-              curr = curr.parent;
-            }
-            return true;
-          });
-          return activeBtn || found[0];
-        };
-
-        const forceClickCocosNode = (node) => {
-          if (!node) return;
-          const trigger = (target) => {
-            if (!target) return;
-            try { target.emit('click', target); } catch(e) {}
-            try {
-              target.emit(cc.Node.EventType.TOUCH_START);
-              target.emit(cc.Node.EventType.TOUCH_END);
-            } catch(e) {}
-            const comps = target._components || target.components || [];
-            for (const c of comps) {
-              if (c && c.clickEvents && c.clickEvents.length > 0) {
-                try { cc.Component.EventHandler.emitEvents(c.clickEvents, {}); } catch(e) {}
+          const findHeaderLoginBtn = (root) => {
+            const found = [];
+            const search = (node) => {
+              if (!node) return;
+              const nameLower = (node.name || "").toLowerCase();
+              if (nameLower === "btn_login" || nameLower === "btn_dangnhap" || nameLower === "login_btn") {
+                found.push(node);
               }
+              for (const child of (node.children || [])) search(child);
+            };
+            search(root);
+            
+            // Ưu tiên nút đang active trong hierarchy
+            const activeBtn = found.find(n => {
+              let curr = n;
+              while(curr) {
+                if (curr.active === false) return false;
+                curr = curr.parent;
+              }
+              return true;
+            });
+            return activeBtn || found[0];
+          };
+
+          const forceClickCocosNode = (node) => {
+            if (!node) return;
+            const trigger = (target) => {
+              if (!target) return;
+              try { target.emit('click', target); } catch(e) {}
+              try {
+                target.emit(cc.Node.EventType.TOUCH_START);
+                target.emit(cc.Node.EventType.TOUCH_END);
+              } catch(e) {}
+              const comps = target._components || target.components || [];
+              for (const c of comps) {
+                if (c && c.clickEvents && c.clickEvents.length > 0) {
+                  try { cc.Component.EventHandler.emitEvents(c.clickEvents, {}); } catch(e) {}
+                }
+              }
+            };
+            trigger(node);
+            for (const child of (node.children || [])) {
+              trigger(child);
             }
           };
-          trigger(node);
-          for (const child of (node.children || [])) {
-            trigger(child);
-          }
-        };
 
-        const btnHeader = findHeaderLoginBtn(scene);
-        if (btnHeader) {
-          window._lastHeaderBtn = btnHeader; // Lưu lại để phân biệt nút submit sau
-          forceClickCocosNode(btnHeader);
-          return `Tìm thấy nút "${btnHeader.name}" (parent: ${btnHeader.parent ? btnHeader.parent.name : 'null'}). Đã click.`;
+          const btnHeader = findHeaderLoginBtn(scene);
+          if (btnHeader) {
+            window._lastHeaderBtn = btnHeader; // Lưu lại để phân biệt nút submit sau
+            forceClickCocosNode(btnHeader);
+            return { success: true, msg: `Tìm thấy nút "${btnHeader.name}" (parent: ${btnHeader.parent ? btnHeader.parent.name : 'null'}). Đã click.` };
+          }
+          return { success: false, msg: "Chưa thấy nút đăng nhập." };
+        } catch(e) {
+          return { success: false, msg: "Lỗi tìm nút Header: " + e.message };
         }
-        return "Không tìm thấy bất kỳ nút đăng nhập nào trên Header.";
-      } catch(e) {
-        return "Lỗi tìm nút Header: " + e.message;
+      });
+
+      if (headerClickResult.success) {
+        addServerLog(`👉 Kết quả click Header: ${headerClickResult.msg}`);
+        btnHeaderFound = true;
+        break;
       }
-    });
-    addServerLog(`👉 Kết quả click Header: ${headerClickResult}`);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    if (!btnHeaderFound) {
+      addServerLog("⚠️ Không tìm thấy nút Đăng nhập trên Header sau 15s chờ đợi.");
+    }
 
     await new Promise(r => setTimeout(r, 3000));
 
