@@ -240,7 +240,22 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     });
 
     addServerLog("🧭 Đang truy cập trang chủ game Sunwin...");
-    await activePage.goto('https://web.sunwin.best/?affId=Sunwin', { waitUntil: 'load', timeout: 60000 });
+    let loaded = false;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await activePage.goto('https://web.sunwin.best/?affId=Sunwin', { waitUntil: 'load', timeout: 60000 });
+        loaded = true;
+        break;
+      } catch (e) {
+        addServerLog(`⚠️ Thử truy cập lần ${attempt} thất bại: ${e.message}`);
+        if (attempt < 3) {
+          addServerLog("⏳ Chờ 3 giây trước khi thử kết nối lại...");
+          await new Promise(r => setTimeout(r, 3000));
+        } else {
+          throw e;
+        }
+      }
+    }
 
     addServerLog(`🔗 Địa chỉ thực tế của trang: ${activePage.url()}`);
 
