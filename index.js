@@ -473,5 +473,5 @@ loadHistoryAndSync();
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[🌐] API Server đang chạy tại http://0.0.0.0:${PORT}`);
-  connectWS();
+  // Đã tắt connectWS() theo yêu cầu để tránh tự động cập nhật dữ liệu rác từ nền
 });
