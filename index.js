@@ -341,7 +341,7 @@ function saveCompletedRecord(record) {
 
 // Thêm endpoint nhận đồng bộ kết quả từ trình duyệt
 app.post('/api/sync-result', (req, res) => {
-  const { phien, ket_qua, xuc_xac, tong_diem, du_doan } = req.body;
+  const { phien, ket_qua, xuc_xac, tong_diem, du_doan, snap_30, snap_20 } = req.body;
   if (!phien || !ket_qua) {
     return res.status(400).json({ error: 'Thiếu thông tin phiên hoặc kết quả' });
   }
@@ -378,6 +378,8 @@ app.post('/api/sync-result', (req, res) => {
   record.ket_qua = ket_qua;
   if (xuc_xac) record.xuc_xac = xuc_xac;
   if (tong_diem) record.tong_diem = parseInt(tong_diem);
+  if (snap_30) record.snap_30 = snap_30;
+  if (snap_20) record.snap_20 = snap_20;
   record.timestamp_ket_qua = new Date().toISOString();
 
   // Đánh giá dự đoán để cập nhật chuỗi thua consecLosses
