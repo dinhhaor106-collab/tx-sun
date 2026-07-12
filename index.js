@@ -410,6 +410,15 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
 
     if (!btnHeaderFound) {
       addServerLog("⚠️ Không tìm thấy nút Đăng nhập trên Header sau 15s chờ đợi.");
+      try {
+        const pubDir = path.join(__dirname, 'public');
+        if (!fs.existsSync(pubDir)) fs.mkdirSync(pubDir, { recursive: true });
+        const screenshotPath = path.join(pubDir, 'lobby_not_found.png');
+        await activePage.screenshot({ path: screenshotPath });
+        addServerLog(`📸 Đã lưu màn hình sảnh bị kẹt vào public/lobby_not_found.png`);
+      } catch(e) {
+        addServerLog(`⚠️ Không thể chụp màn hình lỗi: ${e.message}`);
+      }
     }
 
     await new Promise(r => setTimeout(r, 3000));
@@ -426,7 +435,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
           if (depth > 6) return;
           for (const child of (node.children || [])) {
             const nameLower = (child.name || "").toLowerCase();
-            if (nameLower.includes('login') || nameLower.includes('dangnhap') || nameLower.includes('pop') || nameLower.includes('form') || nameLower.includes('box')) {
+            if (nameLower.includes('login') || nameLower.includes('dangnhap') || nameLower.includes('pop') || nameLower.includes('form') || nameLower.includes('box') || nameLower.includes('btn')) {
               related.push(`${" ".repeat(depth * 2)}- ${child.name} (active:${child.active}, parent:${child.parent ? child.parent.name : 'null'})`);
             }
             findByName(child, depth+1);
