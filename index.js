@@ -266,7 +266,13 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
           return null;
         };
         const capResult = findInputNode(scene, "lb_edit_box_capcha");
-        return !!(capResult && capResult.node.activeInHierarchy !== false);
+        if (!capResult) return false;
+        let curr = capResult.node;
+        while (curr) {
+          if (curr.active === false) return false;
+          curr = curr.parent;
+        }
+        return true;
       } catch(e) { return false; }
     });
 
