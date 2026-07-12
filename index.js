@@ -159,8 +159,8 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     activePage = await activeBrowser.newPage();
     await activePage.setViewport({ width: 1280, height: 720 });
 
-    addServerLog("🧭 Đang truy cập trang chủ game Sunwin...");
-    await activePage.goto('https://play.sun.win', { waitUntil: 'networkidle2', timeout: 60000 });
+    addServerLog("🧭 Đang truy cập trang chủ game Sunwin qua tên miền trực tiếp...");
+    await activePage.goto('https://web.azhkthg1.net', { waitUntil: 'networkidle2', timeout: 60000 });
 
     addServerLog("🔍 Đang tìm kiếm ô đăng nhập...");
     await activePage.waitForFunction(() => {
