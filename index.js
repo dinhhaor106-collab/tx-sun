@@ -322,19 +322,33 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     addServerLog(`🎮 Đã tìm thấy Engine Cocos tại Frame: "${activeFrame === activePage ? 'Trang chính' : activeFrame.url()}"`);
 
     addServerLog("🔑 Đang kích hoạt nút Đăng nhập trên Header...");
-    await activeFrame.evaluate(() => {
+    const headerClickResult = await activeFrame.evaluate(() => {
       try {
         const scene = cc.director.getScene();
+        if (!scene) return "Không tìm thấy scene";
         
         const findHeaderLoginBtn = (root) => {
-          const btnLogins = [];
+          const found = [];
           const search = (node) => {
             if (!node) return;
-            if (node.name === "btn_login") btnLogins.push(node);
+            const nameLower = (node.name || "").toLowerCase();
+            if (nameLower === "btn_login" || nameLower === "btn_dangnhap" || nameLower === "login_btn") {
+              found.push(node);
+            }
             for (const child of (node.children || [])) search(child);
           };
           search(root);
-          return btnLogins.find(btn => btn.parent && btn.parent.name === "unlogged_in_node");
+          
+          // Ưu tiên nút có cha là unlogged_in_node hoặc đang active trong hierarchy
+          const activeBtn = found.find(n => {
+            let curr = n;
+            while(curr) {
+              if (curr.active === false) return false;
+              curr = curr.parent;
+            }
+            return true;
+          });
+          return activeBtn || found[0];
         };
 
         const forceClickCocosNode = (node) => {
@@ -360,31 +374,45 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         };
 
         const btnHeader = findHeaderLoginBtn(scene);
-        if (btnHeader) forceClickCocosNode(btnHeader);
-      } catch(e) {}
+        if (btnHeader) {
+          window._lastHeaderBtn = btnHeader; // Lưu lại để phân biệt nút submit sau
+          forceClickCocosNode(btnHeader);
+          return `Tìm thấy nút "${btnHeader.name}" (parent: ${btnHeader.parent ? btnHeader.parent.name : 'null'}). Đã click.`;
+        }
+        return "Không tìm thấy bất kỳ nút đăng nhập nào trên Header.";
+      } catch(e) {
+        return "Lỗi tìm nút Header: " + e.message;
+      }
     });
+    addServerLog(`👉 Kết quả click Header: ${headerClickResult}`);
 
     await new Promise(r => setTimeout(r, 3000));
 
-    // Chẩn đoán: In ra các node cấp 1 của scene để xem popup đã mở chưa
-    await activeFrame.evaluate(() => {
+    // Chẩn đoán: Quét và in ra các node đang chạy để gỡ lỗi
+    const debugInfo = await activeFrame.evaluate(() => {
       try {
         const scene = cc.director.getScene();
+        if (!scene) return "Không tìm thấy scene";
         const topNodes = (scene.children || []).map(n => `${n.name}(active:${n.active})`);
-        console.log('[BOT LOGIN DEBUG] Nodes cấp 1 trong scene: ' + topNodes.join(', '));
-        // Tìm sâu hơn node popup
-        const findByName = (node, name, depth=0) => {
-          if (depth > 5) return;
+        
+        let related = [];
+        const findByName = (node, depth=0) => {
+          if (depth > 6) return;
           for (const child of (node.children || [])) {
-            if (child.name && child.name.includes('login') || child.name && child.name.includes('Login')) {
-              console.log('[BOT LOGIN DEBUG] Node liên quan login: ' + child.name + ' active=' + child.active + ' parent=' + (child.parent && child.parent.name));
+            const nameLower = (child.name || "").toLowerCase();
+            if (nameLower.includes('login') || nameLower.includes('dangnhap') || nameLower.includes('pop') || nameLower.includes('form') || nameLower.includes('box')) {
+              related.push(`${" ".repeat(depth * 2)}- ${child.name} (active:${child.active}, parent:${child.parent ? child.parent.name : 'null'})`);
             }
-            findByName(child, name, depth+1);
+            findByName(child, depth+1);
           }
         };
-        findByName(scene, 'login');
-      } catch(e) { console.log('[BOT LOGIN DEBUG] Lỗi debug: ' + e.message); }
+        findByName(scene);
+        return `Top Nodes: ${topNodes.join(', ')}\nRelated Nodes:\n${related.join('\n')}`;
+      } catch(e) {
+        return "Lỗi debug: " + e.message;
+      }
     });
+    addServerLog(`🔍 [BOT LOGIN SCAN] Kết quả quét Scene:\n${debugInfo}`);
 
     // Kiểm tra xem captcha có active không
     const captchaActive = await activeFrame.evaluate(() => {
@@ -513,7 +541,10 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
             for (const child of (node.children || [])) search(child);
           };
           search(root);
-          return btnLogins.find(btn => btn.parent && btn.parent.name !== "unlogged_in_node");
+          const headerBtn = window._lastHeaderBtn;
+          const submitBtn = btnLogins.find(btn => btn !== headerBtn && btn.parent && btn.parent.name !== "unlogged_in_node");
+          if (submitBtn) return submitBtn;
+          return btnLogins.find(btn => btn !== headerBtn && btn.active) || btnLogins.find(btn => btn !== headerBtn) || btnLogins[0];
         };
 
         const usrResult = findInputNode(scene, "lb_edit_box_ten");
