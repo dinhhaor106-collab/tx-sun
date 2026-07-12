@@ -153,26 +153,23 @@ async function resolveTinProxy(apiKey) {
     }).on('error', (err) => resolve({ error: err.message }));
   });
 
-  // 1. Thử lấy proxy hiện tại
+  // TinProxy trả về code:1 khi thành công (không phải success:true)
   let res = await get(`https://api.tinproxy.com/proxy/get-current-proxy?api_key=${apiKey}`);
-  addServerLog(`[TinProxy API Response 1] ${JSON.stringify(res)}`);
-  if (res && res.success && res.data) {
-    const proxyStr = res.data.http_ipv4 || res.data.socks5 || res.data.proxy;
-    if (proxyStr) return proxyStr;
-  }
-  
-  // 2. Nếu không được, đổi IP mới
-  res = await get(`https://api.tinproxy.com/proxy/get-new-ip?api_key=${apiKey}`);
-  addServerLog(`[TinProxy API Response 2] ${JSON.stringify(res)}`);
-  if (res && res.success && res.data) {
-    const proxyStr = res.data.http_ipv4 || res.data.socks5 || res.data.proxy;
-    if (proxyStr) return proxyStr;
+  addServerLog(`[TinProxy API Response] ${JSON.stringify(res).substring(0, 300)}`);
+
+  if (res && res.code === 1 && res.data) {
+    const proxyStr = res.data.http_ipv4 || res.data.socks_ipv4 || res.data.proxy;
+    const auth = res.data.authentication || {};
+    if (proxyStr) {
+      return {
+        proxy: proxyStr,
+        username: auth.username || "",
+        password: auth.password || ""
+      };
+    }
   }
 
-  // 3. Fallback khác
-  if (res && res.data && typeof res.data === 'string') {
-    return res.data;
-  }
+  addServerLog(`[TinProxy] Lỗi hoặc định dạng không nhận diện được: code=${res && res.code}, message=${res && res.message}`);
   return null;
 }
 
@@ -187,14 +184,18 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
 
   try {
     let finalProxy = proxyServer ? proxyServer.trim() : "";
+    let finalProxyUser = proxyUser || "";
+    let finalProxyPass = proxyPass || "";
 
     // Tự động nhận diện TinProxy API Key
     if (finalProxy && !finalProxy.includes(':') && finalProxy.length > 25) {
       addServerLog("🔑 Phát hiện mã TinProxy API Key. Đang tự động kết nối lấy IP...");
       const resolved = await resolveTinProxy(finalProxy);
       if (resolved) {
-        addServerLog(`✅ TinProxy cấp địa chỉ: "${resolved}"`);
-        finalProxy = resolved;
+        addServerLog(`✅ TinProxy cấp địa chỉ: "${resolved.proxy}" | User: "${resolved.username}"`);
+        finalProxy = resolved.proxy;
+        if (resolved.username) finalProxyUser = resolved.username;
+        if (resolved.password) finalProxyPass = resolved.password;
       } else {
         addServerLog("❌ Lỗi lấy IP từ TinProxy API. Vui lòng kiểm tra lại Key hoặc đợi 2 phút.");
         throw new Error("Lỗi kết nối TinProxy");
@@ -221,11 +222,11 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     activePage = await activeBrowser.newPage();
     await activePage.setViewport({ width: 1280, height: 720 });
 
-    if (finalProxy && proxyUser && proxyPass) {
-      addServerLog(`🔐 Thực hiện xác thực Proxy: User = "${proxyUser}"`);
+    if (finalProxy && finalProxyUser && finalProxyPass) {
+      addServerLog(`🔐 Thực hiện xác thực Proxy: User = "${finalProxyUser}"`);
       await activePage.authenticate({
-        username: proxyUser,
-        password: proxyPass
+        username: finalProxyUser,
+        password: finalProxyPass
       });
     }
 
