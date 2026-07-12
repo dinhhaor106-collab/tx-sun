@@ -926,7 +926,15 @@ async function stopPuppeteerBot() {
   botState.running = false;
   addServerLog("🛑 Đang dừng trình duyệt ẩn...");
   if (activeBrowser) {
-    try { await activeBrowser.close(); } catch(e) {}
+    try {
+      // Đóng trình duyệt ảo với timeout 3s để tránh bị treo cứng luồng do tiến trình zombie
+      await Promise.race([
+        activeBrowser.close(),
+        new Promise(r => setTimeout(r, 3000))
+      ]);
+    } catch(e) {
+      addServerLog(`⚠️ Cảnh báo lỗi tắt browser: ${e.message}`);
+    }
     activeBrowser = null;
     activePage = null;
   }
@@ -939,6 +947,10 @@ async function stopPuppeteerBot() {
 
 app.post('/api/bot/start', (req, res) => {
   const { username, password, baseBet, capital, proxyServer, proxyUser, proxyPass } = req.body;
+  
+  console.log(`📝 [DASHBOARD] Nhận lệnh khởi chạy bot cho tài khoản: "${username}"`);
+  addServerLog(`📝 Nhận lệnh khởi chạy bot cho tài khoản: "${username}"`);
+
   if (!username || !password) {
     return res.status(400).json({ status: 'error', message: 'Thiếu thông tin đăng nhập' });
   }
