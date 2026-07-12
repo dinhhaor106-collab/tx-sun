@@ -158,7 +158,10 @@ async function resolveTinProxy(apiKey) {
   addServerLog(`[TinProxy API Response] ${JSON.stringify(res).substring(0, 300)}`);
 
   if (res && res.code === 1 && res.data) {
-    const proxyStr = res.data.http_ipv4 || res.data.socks_ipv4 || res.data.proxy;
+    // Ưu tiên SOCKS5 vì hỗ trợ cả HTTP lẫn HTTPS tunneling
+    const socks5 = res.data.socks_ipv4 || res.data.socks5;
+    const http = res.data.http_ipv4 || res.data.proxy;
+    const proxyStr = socks5 ? `socks5://${socks5}` : http;
     const auth = res.data.authentication || {};
     if (proxyStr) {
       return {
