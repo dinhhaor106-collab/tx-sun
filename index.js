@@ -239,6 +239,28 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       addServerLog(`[BROWSER ERROR] ${err.toString()}`);
     });
 
+    // Chặn request GitLab config (hay bị lỗi CORS/tunnel) và trả về mock để game không crash
+    await activePage.setRequestInterception(true);
+    activePage.on('request', (request) => {
+      const url = request.url();
+      // Mock GitLab config để tránh TypeError: Cannot read properties of null (reading 'tracking_url')
+      if (url.includes('gitlab.com') || url.includes('configs5533647')) {
+        request.respond({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            tracking_url: "",
+            ads_url: "",
+            version: "363",
+            status: 1,
+            msg: "ok"
+          })
+        });
+      } else {
+        request.continue();
+      }
+    });
+
     addServerLog("🧭 Đang truy cập trang chủ game Sunwin...");
     let loaded = false;
     for (let attempt = 1; attempt <= 3; attempt++) {
