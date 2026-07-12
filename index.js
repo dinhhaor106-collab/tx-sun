@@ -235,11 +235,13 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
       await new Promise(r => setTimeout(r, 1000));
     }
     if (!ccReady) {
-      // Chụp màn hình lỗi lưu lại để kiểm tra giao diện hiện tại
       const pubDir = path.join(__dirname, 'public');
-      if (!fs.existsSync(pubDir)) fs.mkdirSync(pubDir, { recursive: true });
-      await activePage.screenshot({ path: path.join(pubDir, 'error_screen.png') });
-      addServerLog("📸 Đã chụp màn hình lỗi lưu vào thư mục public/error_screen.png");
+      if (!fs.existsSync(pubDir)) {
+        fs.mkdirSync(pubDir, { recursive: true });
+      }
+      const screenshotPath = path.join(pubDir, 'error_screen.png');
+      await activePage.screenshot({ path: screenshotPath });
+      addServerLog(`📸 Đã chụp màn hình lỗi lưu vào thư mục public/error_screen.png`);
       throw new Error("Không thể tải engine game. Vui lòng kiểm tra lại đường truyền.");
     }
     addServerLog(`🎮 Đã tìm thấy Engine Cocos tại Frame: "${activeFrame === activePage ? 'Trang chính' : activeFrame.url()}"`);
