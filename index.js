@@ -200,28 +200,42 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     await activePage.evaluate(() => {
       try {
         const scene = cc.director.getScene();
-        const findNodeByName = (node, target) => {
-          if (!node) return null;
-          if (node.name === target) return node;
-          for (const c of (node.children || [])) {
-            const r = findNodeByName(c, target);
-            if (r) return r;
-          }
-          return null;
+        
+        const findHeaderLoginBtn = (root) => {
+          const btnLogins = [];
+          const search = (node) => {
+            if (!node) return;
+            if (node.name === "btn_login") btnLogins.push(node);
+            for (const child of (node.children || [])) search(child);
+          };
+          search(root);
+          return btnLogins.find(btn => btn.parent && btn.parent.name === "unlogged_in_node");
         };
-        const btnHeaderLogin = findNodeByName(scene, "btn_login");
-        if (btnHeaderLogin) {
-          const comps = btnHeaderLogin._components || btnHeaderLogin.components || [];
-          for (const c of comps) {
-            if (c && c.clickEvents && c.clickEvents.length > 0) {
-              cc.Component.EventHandler.emitEvents(c.clickEvents, {});
+
+        const forceClickCocosNode = (node) => {
+          if (!node) return;
+          const trigger = (target) => {
+            if (!target) return;
+            try { target.emit('click', target); } catch(e) {}
+            try {
+              target.emit(cc.Node.EventType.TOUCH_START);
+              target.emit(cc.Node.EventType.TOUCH_END);
+            } catch(e) {}
+            const comps = target._components || target.components || [];
+            for (const c of comps) {
+              if (c && c.clickEvents && c.clickEvents.length > 0) {
+                try { cc.Component.EventHandler.emitEvents(c.clickEvents, {}); } catch(e) {}
+              }
             }
+          };
+          trigger(node);
+          for (const child of (node.children || [])) {
+            trigger(child);
           }
-          if (typeof btnHeaderLogin.emit === 'function') {
-            btnHeaderLogin.emit(cc.Node.EventType.TOUCH_START);
-            setTimeout(() => btnHeaderLogin.emit(cc.Node.EventType.TOUCH_END), 50);
-          }
-        }
+        };
+
+        const btnHeader = findHeaderLoginBtn(scene);
+        if (btnHeader) forceClickCocosNode(btnHeader);
       } catch(e) {}
     });
 
@@ -231,17 +245,28 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     const captchaActive = await activePage.evaluate(() => {
       try {
         const scene = cc.director.getScene();
-        const findNodeByName = (node, target) => {
+        const findEditBoxInNode = (node) => {
           if (!node) return null;
-          if (node.name === target) return node;
-          for (const c of (node.children || [])) {
-            const r = findNodeByName(c, target);
+          const comps = node._components || node.components || [];
+          for (const c of comps) {
+            if (c && ('string' in c || '_string' in c) && ('placeholder' in c || '_placeholder' in c)) return c;
+          }
+          return null;
+        };
+        const findInputNode = (node, targetName) => {
+          if (!node) return null;
+          if (node.name === targetName) {
+            const editBox = findEditBoxInNode(node);
+            if (editBox) return { node, editBox };
+          }
+          for (const child of (node.children || [])) {
+            const r = findInputNode(child, targetName);
             if (r) return r;
           }
           return null;
         };
-        const capNode = findNodeByName(scene, "lb_edit_box_capcha");
-        return !!(capNode && capNode.activeInHierarchy !== false);
+        const capResult = findInputNode(scene, "lb_edit_box_capcha");
+        return !!(capResult && capResult.node.activeInHierarchy !== false);
       } catch(e) { return false; }
     });
 
@@ -274,17 +299,8 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
         const scene = cc.director.getScene();
         if (!scene) return { success: false, reason: "Không tìm thấy scene" };
 
-        const findNodeByName = (node, target) => {
-          if (!node) return null;
-          if (node.name === target) return node;
-          for (const c of (node.children || [])) {
-            const r = findNodeByName(c, target);
-            if (r) return r;
-          }
-          return null;
-        };
-
         const findEditBoxInNode = (node) => {
+          if (!node) return null;
           const comps = node._components || node.components || [];
           for (const c of comps) {
             if (c && ('string' in c || '_string' in c) && ('placeholder' in c || '_placeholder' in c)) return c;
@@ -292,49 +308,78 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
           return null;
         };
 
-        const usrNode = findNodeByName(scene, "lb_edit_box_ten");
-        const pwdNode = findNodeByName(scene, "lb_edit_box_password");
-        const capNode = findNodeByName(scene, "lb_edit_box_capcha");
-
-        const usrBox = usrNode ? findEditBoxInNode(usrNode) : null;
-        const pwdBox = pwdNode ? findEditBoxInNode(pwdNode) : null;
-        const capBox = capNode ? findEditBoxInNode(capNode) : null;
-
-        if (!usrBox || !pwdBox) {
-          return { success: false, reason: `Không tìm thấy các ô điền. UserNode: ${!!usrNode}, PwdNode: ${!!pwdNode}` };
-        }
-
-        usrBox.string = user;
-        usrNode.emit('text-changed', usrBox);
-        if (usrBox._updateString) usrBox._updateString();
-
-        pwdBox.string = pass;
-        pwdNode.emit('text-changed', pwdBox);
-        if (pwdBox._updateString) pwdBox._updateString();
-
-        if (capBox && capVal) {
-          capBox.string = capVal;
-          capNode.emit('text-changed', capBox);
-          if (capBox._updateString) capBox._updateString();
-        }
-
-        const loginPopup = findNodeByName(scene, "popup_1");
-        if (!loginPopup) return { success: false, reason: "Không tìm thấy popup ĐĂNG NHẬP" };
-
-        const btnSubmit = findNodeByName(loginPopup, "btn_login");
-        if (!btnSubmit) return { success: false, reason: "Không tìm thấy nút Xác nhận Đăng nhập (btn_login)" };
-
-        const comps = btnSubmit._components || btnSubmit.components || [];
-        for (const c of comps) {
-          if (c && c.clickEvents && c.clickEvents.length > 0) {
-            cc.Component.EventHandler.emitEvents(c.clickEvents, {});
+        const findInputNode = (node, targetName) => {
+          if (!node) return null;
+          if (node.name === targetName) {
+            const editBox = findEditBoxInNode(node);
+            if (editBox) return { node, editBox };
           }
-        }
-        if (typeof btnSubmit.emit === 'function') {
-          btnSubmit.emit(cc.Node.EventType.TOUCH_START);
-          setTimeout(() => btnSubmit.emit(cc.Node.EventType.TOUCH_END), 50);
+          for (const child of (node.children || [])) {
+            const r = findInputNode(child, targetName);
+            if (r) return r;
+          }
+          return null;
+        };
+
+        const forceClickCocosNode = (node) => {
+          if (!node) return;
+          const trigger = (target) => {
+            if (!target) return;
+            try { target.emit('click', target); } catch(e) {}
+            try {
+              target.emit(cc.Node.EventType.TOUCH_START);
+              target.emit(cc.Node.EventType.TOUCH_END);
+            } catch(e) {}
+            const comps = target._components || target.components || [];
+            for (const c of comps) {
+              if (c && c.clickEvents && c.clickEvents.length > 0) {
+                try { cc.Component.EventHandler.emitEvents(c.clickEvents, {}); } catch(e) {}
+              }
+            }
+          };
+          trigger(node);
+          for (const child of (node.children || [])) {
+            trigger(child);
+          }
+        };
+
+        const findSubmitLoginBtn = (root) => {
+          const btnLogins = [];
+          const search = (node) => {
+            if (!node) return;
+            if (node.name === "btn_login") btnLogins.push(node);
+            for (const child of (node.children || [])) search(child);
+          };
+          search(root);
+          return btnLogins.find(btn => btn.parent && btn.parent.name !== "unlogged_in_node");
+        };
+
+        const usrResult = findInputNode(scene, "lb_edit_box_ten");
+        const pwdResult = findInputNode(scene, "lb_edit_box_password");
+        const capResult = findInputNode(scene, "lb_edit_box_capcha");
+
+        if (!usrResult || !pwdResult) {
+          return { success: false, reason: "Không tìm thấy các linh kiện nhập liệu thực tế." };
         }
 
+        usrResult.editBox.string = user;
+        usrResult.node.emit('text-changed', usrResult.editBox);
+        if (usrResult.editBox._updateString) usrResult.editBox._updateString();
+
+        pwdResult.editBox.string = pass;
+        pwdResult.node.emit('text-changed', pwdResult.editBox);
+        if (pwdResult.editBox._updateString) pwdResult.editBox._updateString();
+
+        if (capResult && capVal) {
+          capResult.editBox.string = capVal;
+          capResult.node.emit('text-changed', capResult.editBox);
+          if (capResult.editBox._updateString) capResult.editBox._updateString();
+        }
+
+        const btnSubmit = findSubmitLoginBtn(scene);
+        if (!btnSubmit) return { success: false, reason: "Không tìm thấy nút Đăng nhập của popup" };
+
+        forceClickCocosNode(btnSubmit);
         return { success: true };
       } catch (e) {
         return { success: false, reason: e.message };
