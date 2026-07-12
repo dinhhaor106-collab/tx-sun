@@ -142,8 +142,11 @@ function connectWS() {
 
     clearInterval(pingInterval);
     pingInterval = setInterval(() => {
-      if (ws && ws.readyState === WebSocket.OPEN) ws.ping();
-    }, 10000);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        // Gửi tin nhắn văn bản hoạt động thay vì ping thô để tránh lỗi đứt kết nối Idle (Code: 1006)
+        ws.send(JSON.stringify([6, "MiniGame", "taixiuPlugin", { cmd: 1005 }]));
+      }
+    }, 8000);
 
     resetStaleTimer();
   });
