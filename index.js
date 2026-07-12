@@ -329,19 +329,40 @@ function cleanup() {
   clearTimeout(reconnectTimeout);
 }
 
-// Lưu bản ghi hoàn chỉnh
+// Lưu hoặc cập nhật bản ghi hoàn chỉnh tránh trùng lặp
 function saveCompletedRecord(record) {
   const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
-  fs.appendFile(filePath, JSON.stringify(record) + '\n', (err) => {
-    if (err) console.error('[❌] Lỗi ghi file lịch sử:', err.message);
-  });
+  let records = [];
+
+  if (fs.existsSync(filePath)) {
+    try {
+      const data = fs.readFileSync(filePath, 'utf8');
+      const lines = data.trim().split('\n').filter(Boolean);
+      records = lines.map(line => {
+        try { return JSON.parse(line); } catch (e) { return null; }
+      }).filter(Boolean);
+    } catch (e) {
+      console.error('[❌] Lỗi đọc file lịch sử để de-duplicate:', e.message);
+    }
+  }
+
+  // Loại bỏ bản ghi cũ cùng phiên nếu có (để giữ bản ghi mới nhất, đầy đủ nhất)
+  records = records.filter(r => parseInt(r.phien) !== parseInt(record.phien));
+  records.push(record);
+
+  try {
+    const output = records.map(r => JSON.stringify(r)).join('\n') + '\n';
+    fs.writeFileSync(filePath, output, 'utf8');
+  } catch (err) {
+    console.error('[❌] Lỗi ghi file lịch sử:', err.message);
+  }
 }
 
 // ===== API ENDPOINTS =====
 
 // Thêm endpoint nhận đồng bộ kết quả từ trình duyệt
 app.post('/api/sync-result', (req, res) => {
-  const { phien, ket_qua, xuc_xac, tong_diem, du_doan, snap_30, snap_20 } = req.body;
+  const { phien, ket_qua, xuc_xac, tong_diem, du_doan, snap_30, snap_20, money_flow } = req.body;
   if (!phien || !ket_qua) {
     return res.status(400).json({ error: 'Thiếu thông tin phiên hoặc kết quả' });
   }
@@ -352,22 +373,6 @@ app.post('/api/sync-result', (req, res) => {
   // Tìm trong snap tạm thời hoặc tạo mới record
   let record = frozenSnapshots.get(sessId);
   if (!record) {
-    // Tìm trong file lịch sử xem đã có chưa
-    const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
-    let existed = false;
-    if (fs.existsSync(filePath)) {
-      try {
-        const data = fs.readFileSync(filePath, 'utf8');
-        if (data.includes(`"phien":${sessId}`)) {
-          existed = true;
-        }
-      } catch (e) {}
-    }
-
-    if (existed) {
-      return res.json({ status: 'existed', consecLosses });
-    }
-
     record = {
       phien: sessId,
       snap_30: null,
@@ -380,6 +385,7 @@ app.post('/api/sync-result', (req, res) => {
   if (tong_diem) record.tong_diem = parseInt(tong_diem);
   if (snap_30) record.snap_30 = snap_30;
   if (snap_20) record.snap_20 = snap_20;
+  if (money_flow) record.money_flow = money_flow; // Ghi nhận dòng tiền chuỗi thời gian
   record.timestamp_ket_qua = new Date().toISOString();
 
   // Đánh giá dự đoán để cập nhật chuỗi thua consecLosses
