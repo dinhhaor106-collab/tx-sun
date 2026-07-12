@@ -361,24 +361,49 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       } catch(e) {}
     });
 
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 3000));
+
+    // Chẩn đoán: In ra các node cấp 1 của scene để xem popup đã mở chưa
+    await activeFrame.evaluate(() => {
+      try {
+        const scene = cc.director.getScene();
+        const topNodes = (scene.children || []).map(n => `${n.name}(active:${n.active})`);
+        console.log('[BOT LOGIN DEBUG] Nodes cấp 1 trong scene: ' + topNodes.join(', '));
+        // Tìm sâu hơn node popup
+        const findByName = (node, name, depth=0) => {
+          if (depth > 5) return;
+          for (const child of (node.children || [])) {
+            if (child.name && child.name.includes('login') || child.name && child.name.includes('Login')) {
+              console.log('[BOT LOGIN DEBUG] Node liên quan login: ' + child.name + ' active=' + child.active + ' parent=' + (child.parent && child.parent.name));
+            }
+            findByName(child, name, depth+1);
+          }
+        };
+        findByName(scene, 'login');
+      } catch(e) { console.log('[BOT LOGIN DEBUG] Lỗi debug: ' + e.message); }
+    });
 
     // Kiểm tra xem captcha có active không
     const captchaActive = await activeFrame.evaluate(() => {
       try {
         const scene = cc.director.getScene();
-        const findEditBoxInNode = (node) => {
+        const findEditBoxDeep = (node) => {
           if (!node) return null;
           const comps = node._components || node.components || [];
           for (const c of comps) {
             if (c && ('string' in c || '_string' in c) && ('placeholder' in c || '_placeholder' in c)) return c;
+          }
+          for (const child of (node.children || [])) {
+            const r = findEditBoxDeep(child);
+            if (r) return r;
           }
           return null;
         };
         const findInputNode = (node, targetName) => {
           if (!node) return null;
           if (node.name === targetName) {
-            const editBox = findEditBoxInNode(node);
+            // Tìm EditBox trực tiếp trên node
+            const editBox = findEditBoxDeep(node);
             if (editBox) return { node, editBox };
           }
           for (const child of (node.children || [])) {
@@ -427,11 +452,15 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         const scene = cc.director.getScene();
         if (!scene) return { success: false, reason: "Không tìm thấy scene" };
 
-        const findEditBoxInNode = (node) => {
+        const findEditBoxDeep = (node) => {
           if (!node) return null;
           const comps = node._components || node.components || [];
           for (const c of comps) {
             if (c && ('string' in c || '_string' in c) && ('placeholder' in c || '_placeholder' in c)) return c;
+          }
+          for (const child of (node.children || [])) {
+            const r = findEditBoxDeep(child);
+            if (r) return r;
           }
           return null;
         };
@@ -439,8 +468,10 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         const findInputNode = (node, targetName) => {
           if (!node) return null;
           if (node.name === targetName) {
-            const editBox = findEditBoxInNode(node);
+            const editBox = findEditBoxDeep(node);
             if (editBox) return { node, editBox };
+            // Nếu không có EditBox trực tiếp, trả về node để log
+            return { node, editBox: null };
           }
           for (const child of (node.children || [])) {
             const r = findInputNode(child, targetName);
@@ -486,8 +517,12 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         const pwdResult = findInputNode(scene, "lb_edit_box_password");
         const capResult = findInputNode(scene, "lb_edit_box_capcha");
 
-        if (!usrResult || !pwdResult) {
-          return { success: false, reason: "Không tìm thấy các linh kiện nhập liệu thực tế." };
+        if (!usrResult || !pwdResult || !usrResult.editBox || !pwdResult.editBox) {
+          const usrFound = !!usrResult;
+          const usrHasBox = usrResult && !!usrResult.editBox;
+          const pwdFound = !!pwdResult;
+          const pwdHasBox = pwdResult && !!pwdResult.editBox;
+          return { success: false, reason: `Không tìm thấy linh kiện: usr(node=${usrFound},box=${usrHasBox}) pwd(node=${pwdFound},box=${pwdHasBox})` };
         }
 
         usrResult.editBox.string = user;
