@@ -159,48 +159,29 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     activePage = await activeBrowser.newPage();
     await activePage.setViewport({ width: 1280, height: 720 });
 
-    addServerLog("🧭 Đang truy cập trang chủ game Sunwin qua tên miền trực tiếp...");
+    addServerLog("🧭 Đang truy cập trang chủ game Sunwin...");
     await activePage.goto('https://web.sunwin.best/?affId=Sunwin', { waitUntil: 'networkidle2', timeout: 60000 });
 
-    addServerLog("🔍 Đang tìm kiếm ô đăng nhập...");
-    await activePage.waitForFunction(() => {
-      const inputs = Array.from(document.querySelectorAll('input'));
-      return inputs.some(i => i.type === 'text' || i.placeholder.toLowerCase().includes('tên') || i.placeholder.toLowerCase().includes('tài khoản'));
-    }, { timeout: 20000 });
-
-    addServerLog("✍️ Đang tự động điền tài khoản mật khẩu...");
-    await activePage.evaluate((user, pass) => {
-      const inputs = Array.from(document.querySelectorAll('input'));
-      const userInput = inputs.find(i => i.type === 'text' || i.placeholder.toLowerCase().includes('tên') || i.placeholder.toLowerCase().includes('tài khoản'));
-      const passInput = inputs.find(i => i.type === 'password' || i.placeholder.toLowerCase().includes('mật khẩu'));
-      if (userInput && passInput) {
-        userInput.value = user;
-        userInput.dispatchEvent(new Event('input', { bubbles: true }));
-        passInput.value = pass;
-        passInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-    }, username, password);
-
-    await new Promise(r => setTimeout(r, 600));
-
-    addServerLog("🔘 Đang kích hoạt nút Đăng nhập...");
-    const clicked = await activePage.evaluate(() => {
-      const elList = Array.from(document.querySelectorAll('button, div, span, a'));
-      const loginBtn = elList.find(el => {
-        const txt = el.textContent.trim().toLowerCase();
-        return txt === 'đăng nhập' || txt === 'login' || txt === 'vào game';
-      });
-      if (loginBtn) {
-        loginBtn.click();
-        return true;
-      }
-      return false;
+    addServerLog("🔍 Đang kiểm tra giao diện trang chủ...");
+    await activePage.evaluate(() => {
+      const clickLandingBtn = () => {
+        const elList = Array.from(document.querySelectorAll('a, button, div, span'));
+        const targetBtn = elList.find(el => {
+          const txt = el.textContent.trim().toLowerCase();
+          return txt.includes('chơi nhanh bản web') || txt.includes('bản web') || txt.includes('chơi trên web') || txt.includes('web game') || txt.includes('vào game');
+        });
+        if (targetBtn) {
+          targetBtn.click();
+          return true;
+        }
+        return false;
+      };
+      clickLandingBtn();
+      setTimeout(clickLandingBtn, 1000);
+      setTimeout(clickLandingBtn, 2500);
     });
 
-    if (!clicked) throw new Error("Không thể nhấn nút Đăng nhập!");
-
-    addServerLog("⏳ Đăng nhập thành công, chờ load game (khoảng 30 giây)...");
-
+    addServerLog("⏳ Đang chờ hệ thống game tải (Cocos Creator Engine)...");
     let ccReady = false;
     for (let i = 0; i < 60; i++) {
       ccReady = await activePage.evaluate(() => {
@@ -209,8 +190,130 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
       if (ccReady) break;
       await new Promise(r => setTimeout(r, 1000));
     }
+    if (!ccReady) throw new Error("Không thể tải engine game. Vui lòng kiểm tra lại đường truyền.");
 
-    if (!ccReady) throw new Error("Tải game quá lâu, có thể bị chặn.");
+    addServerLog("🔑 Đang tìm kiếm Form Đăng nhập...");
+    let loginFormFound = false;
+    for (let i = 0; i < 30; i++) {
+      loginFormFound = await activePage.evaluate(() => {
+        try {
+          const scene = cc.director.getScene();
+          if (!scene) return false;
+          const findEditBoxes = (node, results = []) => {
+            if (!node) return results;
+            const editBox = node.getComponent(cc.EditBox);
+            if (editBox) {
+              results.push(node.name.toLowerCase());
+            }
+            for (const child of (node.children || [])) {
+              findEditBoxes(child, results);
+            }
+            return results;
+          };
+          const boxes = findEditBoxes(scene);
+          return boxes.some(name => name.includes('user') || name.includes('pass') || name.includes('tk') || name.includes('mk') || name.includes('editbox') || name.includes('acc') || name.includes('tai_khoan'));
+        } catch(e) { return false; }
+      });
+      if (loginFormFound) break;
+      // Nhấn nút đăng nhập HTML/Landing page lại nếu có
+      await activePage.evaluate(() => {
+        const elList = Array.from(document.querySelectorAll('a, button, div, span'));
+        const btn = elList.find(el => el.textContent.trim().toLowerCase() === 'đăng nhập' || el.textContent.trim().toLowerCase() === 'login');
+        if (btn) btn.click();
+      });
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    addServerLog("✍️ Đang điền tài khoản, mật khẩu...");
+    const loginResult = await activePage.evaluate((user, pass) => {
+      try {
+        const scene = cc.director.getScene();
+        if (!scene) return { success: false, reason: "Không tìm thấy scene" };
+
+        const findEditBoxes = (node, results = []) => {
+          if (!node) return results;
+          const editBox = node.getComponent(cc.EditBox);
+          if (editBox) {
+            results.push({ name: node.name, node, editBox });
+          }
+          for (const child of (node.children || [])) {
+            findEditBoxes(child, results);
+          }
+          return results;
+        };
+
+        const findButtons = (node, results = []) => {
+          if (!node) return results;
+          const btn = node.getComponent(cc.Button);
+          if (btn) {
+            results.push({ name: node.name, node, btn });
+          }
+          for (const child of (node.children || [])) {
+            findButtons(child, results);
+          }
+          return results;
+        };
+
+        const boxes = findEditBoxes(scene);
+        const buttons = findButtons(scene);
+
+        const usrBox = boxes.find(b => /user|usr|name|tk|acc|taikhoan|tentaikhoan/i.test(b.name.toLowerCase()));
+        const pwdBox = boxes.find(b => /pass|pwd|mk|matkhau/i.test(b.name.toLowerCase()));
+
+        if (!usrBox || !pwdBox) {
+          return { success: false, reason: `Không tìm thấy ô nhập trong game. usr found: ${!!usrBox}, pwd found: ${!!pwdBox}` };
+        }
+
+        usrBox.editBox.string = user;
+        usrBox.node.emit('text-changed', usrBox.editBox);
+        if (usrBox.editBox._updateString) usrBox.editBox._updateString();
+
+        pwdBox.editBox.string = pass;
+        pwdBox.node.emit('text-changed', pwdBox.editBox);
+        if (pwdBox.editBox._updateString) pwdBox.editBox._updateString();
+
+        const loginBtn = buttons.find(b => /login|dangnhap|dang_nhap|submit|xacnhan|xac_nhan/i.test(b.name.toLowerCase()));
+        if (!loginBtn) {
+          return { success: false, reason: "Không tìm thấy nút đăng nhập trong game" };
+        }
+
+        if (loginBtn.btn.clickEvents && loginBtn.btn.clickEvents.length > 0) {
+          cc.Component.EventHandler.emitEvents(loginBtn.btn.clickEvents, {});
+        }
+        if (loginBtn.node && typeof loginBtn.node.emit === 'function') {
+          loginBtn.node.emit(cc.Node.EventType.TOUCH_START);
+          setTimeout(() => loginBtn.node.emit(cc.Node.EventType.TOUCH_END), 50);
+        }
+
+        return { success: true };
+      } catch (e) {
+        return { success: false, reason: e.message };
+      }
+    }, username, password);
+
+    if (!loginResult.success) {
+      addServerLog(`⚠️ Đang thử đăng nhập dự phòng (HTML): ${loginResult.reason}`);
+      await activePage.evaluate((user, pass) => {
+        const inputs = Array.from(document.querySelectorAll('input'));
+        const userInput = inputs.find(i => i.type === 'text' || i.placeholder.toLowerCase().includes('tên') || i.placeholder.toLowerCase().includes('tài khoản'));
+        const passInput = inputs.find(i => i.type === 'password' || i.placeholder.toLowerCase().includes('mật khẩu'));
+        if (userInput && passInput) {
+          userInput.value = user;
+          userInput.dispatchEvent(new Event('input', { bubbles: true }));
+          passInput.value = pass;
+          passInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        const elList = Array.from(document.querySelectorAll('button, div, span, a'));
+        const loginBtn = elList.find(el => {
+          const txt = el.textContent.trim().toLowerCase();
+          return txt === 'đăng nhập' || txt === 'login' || txt === 'vào game' || txt === 'xác nhận';
+        });
+        if (loginBtn) loginBtn.click();
+      }, username, password);
+    }
+
+    addServerLog("⏳ Đăng nhập xong, đang chờ game tải chính thức...");
+    await new Promise(r => setTimeout(r, 15000));
     addServerLog("🎮 Game đã load xong! Đang chờ bạn mở bảng cược Tài Xỉu...");
 
     let txReady = false;
@@ -609,32 +712,7 @@ app.post('/api/bot/update-state', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Endpoint chụp ảnh màn hình và lấy DOM để debug giao diện thực tế của Sunwin trên Railway
-app.get('/api/bot/debug', async (req, res) => {
-  if (!activePage) {
-    return res.send("<h1>Không có trang activePage nào đang chạy!</h1><p>Vui lòng bấm Khởi chạy Bot trên điện thoại trước khi gọi link debug này.</p>");
-  }
-  try {
-    const screenshotBuffer = await activePage.screenshot({ type: 'png' });
-    const dom = await activePage.evaluate(() => {
-      return {
-        htmlLength: document.documentElement.outerHTML.length,
-        inputs: Array.from(document.querySelectorAll('input')).map(i => ({
-          type: i.type,
-          placeholder: i.placeholder,
-          id: i.id,
-          className: i.className
-        })),
-        iframes: Array.from(document.querySelectorAll('iframe')).map(f => f.src),
-        buttons: Array.from(document.querySelectorAll('button')).map(b => b.textContent.trim())
-      };
-    });
-    res.setHeader('Content-Type', 'image/png');
-    res.send(screenshotBuffer);
-  } catch (e) {
-    res.status(500).send(`Lỗi debug: ${e.message}`);
-  }
-});
+// ===== CÁC ENDPOINT ĐỒNG BỘ DATA & LỊCH SỬ CŨ =====
 
 app.post('/api/sync-result', (req, res) => {
   const { phien, ket_qua, xuc_xac, tong_diem, du_doan, snap_30, snap_20, money_flow } = req.body;
