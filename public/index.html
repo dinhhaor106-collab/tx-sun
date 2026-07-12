@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sunwin Perfect Auto-Bet Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0b071e;
+      --panel-bg: rgba(25, 15, 50, 0.5);
+      --border-color: rgba(255, 0, 128, 0.25);
+      --primary-color: #ff007f;
+      --secondary-color: #2563eb;
+      --success-color: #22c55e;
+      --danger-color: #ef4444;
+      --text-color: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at 50% 50%, #1e0d3a 0%, var(--bg-color) 80%);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 10px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    header {
+      text-align: center;
+      padding: 10px 0;
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-shadow: 0 0 15px rgba(255, 0, 127, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    header h1 span {
+      color: var(--primary-color);
+    }
+
+    header p {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-group input:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 8px rgba(255, 0, 127, 0.3);
+    }
+
+    .form-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    .btn-start {
+      background: linear-gradient(135deg, var(--primary-color) 0%, #d0006c 100%);
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(255, 0, 127, 0.4);
+    }
+
+    .btn-stop {
+      background: #334155;
+      color: #f1f5f9;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Grid statistics layout */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .stat-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-item.full {
+      grid-column: span 2;
+    }
+
+    .stat-lbl {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-val {
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    #bot-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      display: inline-block;
+    }
+
+    .indicator.running {
+      background: var(--success-color);
+      box-shadow: 0 0 10px var(--success-color);
+      animation: pulse 1.5s infinite;
+    }
+
+    .indicator.stopped {
+      background: var(--danger-color);
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.5; }
+      50% { opacity: 1; }
+      100% { opacity: 0.5; }
+    }
+
+    /* Console Terminal style logs */
+    .terminal {
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .terminal-hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      margin-bottom: 8px;
+    }
+
+    .terminal-dots {
+      display: flex;
+      gap: 4px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    .dot.r { background: var(--danger-color); }
+    .dot.y { background: #eab308; }
+    .dot.g { background: var(--success-color); }
+
+    .terminal-title {
+      font-size: 8px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .log-box {
+      height: 180px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 10px;
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .log-box::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .log-box::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+    }
+
+    .color-green { color: var(--success-color); }
+    .color-red { color: var(--danger-color); }
+    .color-blue { color: var(--secondary-color); }
+    .color-yellow { color: #eab308; }
+    .color-gray { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>⚡ Sunwin <span>Auto-Bet</span></h1>
+      <p>Mobile Control Panel v3.5</p>
+    </header>
+
+    <!-- Cấu hình bot cược -->
+    <div class="card" id="config-panel">
+      <div class="form-group">
+        <label>Tài khoản Sunwin</label>
+        <input type="text" id="username" placeholder="Nhập tên đăng nhập...">
+      </div>
+      <div class="form-group">
+        <label>Mật khẩu</label>
+        <input type="password" id="password" placeholder="Nhập mật khẩu...">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Mức cược gốc (VNĐ)</label>
+          <input type="number" id="baseBet" value="1000">
+        </div>
+        <div class="form-group">
+          <label>Vốn tối đa (VNĐ)</label>
+          <input type="number" id="capital" value="500000">
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn-start" id="btn-start">Khởi chạy Bot</button>
+        <button class="btn-stop" id="btn-stop" style="display: none;">Dừng hoạt động</button>
+      </div>
+    </div>
+
+    <!-- Thông số hoạt động -->
+    <div class="card">
+      <div class="stats-grid">
+        <div class="stat-item full">
+          <span class="stat-lbl">Trạng thái hoạt động</span>
+          <span class="stat-val" id="bot-status">
+            <span class="indicator" id="indicator"></span>
+            <span id="status-text">Đang dừng</span>
+          </span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-lbl">Phiên hiện tại</span>
+          <span class="stat-val" id="stat-session">---</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-lbl">Giây đếm ngược</span>
+          <span class="stat-val" id="stat-timer">--s</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-lbl">Dự đoán AI</span>
+          <span class="stat-val" id="stat-pred" style="color: #eab308;">---</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-lbl">Số tiền cược</span>
+          <span class="stat-val" id="stat-amount">0đ</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-lbl">Tay cược</span>
+          <span class="stat-val" id="stat-step" style="color: var(--primary-color);">Tay 1</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-lbl">Lợi nhuận (Lãi/Lỗ)</span>
+          <span class="stat-val" id="stat-profit" style="color: #fff;">0đ</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nhật ký chạy nền -->
+    <div class="terminal">
+      <div class="terminal-hdr">
+        <div class="terminal-dots">
+          <span class="dot r"></span>
+          <span class="dot y"></span>
+          <span class="dot g"></span>
+        </div>
+        <span class="terminal-title">Live Server Log Terminal</span>
+      </div>
+      <div class="log-box" id="log-box">
+        <div class="color-gray">[Hệ Thống] Đang kết nối trạng thái API...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const btnStart = document.getElementById('btn-start');
+    const btnStop = document.getElementById('btn-stop');
+    const indicator = document.getElementById('indicator');
+    const statusText = document.getElementById('status-text');
+
+    const usernameInput = document.getElementById('username');
+    const passwordInput = document.getElementById('password');
+    const baseBetInput = document.getElementById('baseBet');
+    const capitalInput = document.getElementById('capital');
+
+    const statSession = document.getElementById('stat-session');
+    const statTimer = document.getElementById('stat-timer');
+    const statPred = document.getElementById('stat-pred');
+    const statAmount = document.getElementById('stat-amount');
+    const statStep = document.getElementById('stat-step');
+    const statProfit = document.getElementById('stat-profit');
+    const logBox = document.getElementById('log-box');
+
+    // Hàm tô màu văn bản log để giống giao diện Console
+    function formatLogLine(line) {
+      if (line.includes("THẮNG") || line.includes("thành công") || line.includes("OK") || line.includes("chính xác")) {
+        return `<div class="color-green">${line}</div>`;
+      }
+      if (line.includes("THUA") || line.includes("Lỗi") || line.includes("sai") || line.includes("đứt")) {
+        return `<div class="color-red">${line}</div>`;
+      }
+      if (line.includes("cược thật") || line.includes("cược giả lập") || line.includes("Đặt")) {
+        return `<div class="color-blue">${line}</div>`;
+      }
+      if (line.includes("Cảnh báo") || line.includes("Thiếu") || line.includes("bỏ qua")) {
+        return `<div class="color-yellow">${line}</div>`;
+      }
+      return `<div>${line}</div>`;
+    }
+
+    btnStart.onclick = async () => {
+      const username = usernameInput.value.trim();
+      const password = passwordInput.value.trim();
+      const baseBet = parseFloat(baseBetInput.value) || 1000;
+      const capital = parseFloat(capitalInput.value) || 500000;
+
+      if (!username || !password) {
+        alert("Vui lòng điền tài khoản và mật khẩu game!");
+        return;
+      }
+
+      btnStart.disabled = true;
+      btnStart.textContent = "Đang khởi động...";
+
+      try {
+        const res = await fetch('/api/bot/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, baseBet, capital })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          btnStart.style.display = 'none';
+          btnStop.style.display = 'block';
+        } else {
+          alert(`Lỗi khởi động: ${data.message}`);
+        }
+      } catch(e) {
+        alert("Lỗi kết nối server!");
+      } finally {
+        btnStart.disabled = false;
+        btnStart.textContent = "Khởi chạy Bot";
+      }
+    };
+
+    btnStop.onclick = async () => {
+      btnStop.disabled = true;
+      btnStop.textContent = "Đang dừng...";
+      try {
+        const res = await fetch('/api/bot/stop', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === 'success') {
+          btnStart.style.display = 'block';
+          btnStop.style.display = 'none';
+        }
+      } catch(e) {
+        alert("Lỗi kết nối dừng server!");
+      } finally {
+        btnStop.disabled = false;
+        btnStop.textContent = "Dừng hoạt động";
+      }
+    };
+
+    // Vòng lặp lấy trạng thái bot thời gian thực từ Railway
+    setInterval(async () => {
+      try {
+        const res = await fetch('/api/bot/status');
+        const data = await res.json();
+
+        // 1. Cập nhật giao diện Bật/Tắt
+        if (data.running) {
+          btnStart.style.display = 'none';
+          btnStop.style.display = 'block';
+          indicator.className = 'indicator running';
+          statusText.textContent = "ĐANG CHẠY NGẦM 24/7";
+          statusText.style.color = "var(--success-color)";
+          
+          // Khóa không cho sửa khi đang chạy
+          usernameInput.disabled = true;
+          passwordInput.disabled = true;
+          baseBetInput.disabled = true;
+          capitalInput.disabled = true;
+        } else {
+          btnStart.style.display = 'block';
+          btnStop.style.display = 'none';
+          indicator.className = 'indicator stopped';
+          statusText.textContent = "ĐANG DỪNG HOẠT ĐỘNG";
+          statusText.style.color = "var(--danger-color)";
+          
+          usernameInput.disabled = false;
+          passwordInput.disabled = false;
+          baseBetInput.disabled = false;
+          capitalInput.disabled = false;
+        }
+
+        // 2. Cập nhật thống kê
+        statSession.textContent = data.state.currentSession ? "#" + data.state.currentSession : "---";
+        statTimer.textContent = data.state.timerVal !== null ? data.state.timerVal + "s" : "--s";
+        
+        const pred = data.state.prediction;
+        statPred.textContent = pred || "---";
+        statPred.style.color = pred === 'Tài' ? 'var(--primary-color)' : (pred === 'Xỉu' ? 'var(--secondary-color)' : '#eab308');
+
+        statAmount.textContent = (data.state.amount || 0).toLocaleString() + "đ";
+        statStep.textContent = "Tay " + (data.state.stage || 1);
+        
+        const profit = data.state.profit || 0;
+        statProfit.textContent = (profit >= 0 ? "+" : "") + profit.toLocaleString() + "đ";
+        statProfit.style.color = profit > 0 ? 'var(--success-color)' : (profit < 0 ? 'var(--danger-color)' : '#fff');
+
+        // 3. Cập nhật Logs
+        if (data.state.logs && data.state.logs.length > 0) {
+          logBox.innerHTML = data.state.logs.map(line => formatLogLine(line)).join('');
+          logBox.scrollTop = logBox.scrollHeight;
+        }
+      } catch (e) {}
+    }, 1500);
+  </script>
+</body>
+</html>
