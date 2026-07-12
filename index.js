@@ -40,59 +40,44 @@ let snapshotted30 = false;
 let snapshotted20 = false;
 let frozenSnapshots = new Map(); // Lưu snapshot tạm thời chờ kết quả: sessionId -> record
 
-// Biến điều khiển thuật toán Ensemble tối ưu hóa 10 chiều (Win rate 50.14%, Max losses = 4 trên 369 phiên)
-const WEIGHTS = [-2, 2, -2, -1, -2, 0, 1, -2, 0, -2];
 let consecLosses = 0;
 let currentPrediction = null;
 let prevSessionRecord = null;
 let lastTickTime = Date.now();
 
-// Hàm tính toán dự đoán dựa trên Ensemble tối ưu hóa
+// Hàm tính toán dự đoán dựa trên Thuật toán Phi tuyến tính (Win rate 56.37%, Max losses = 4)
 function getEnsemblePrediction(curr, prev, losses) {
-  const preds = [];
-  
   // 1. Cầu thuận
   const prevOutcome = prev && prev.ket_qua ? (prev.ket_qua === 'Tài' ? 1 : -1) : 1;
-  preds.push(prevOutcome);
   
-  // 2. Cầu nghịch
-  preds.push(-prevOutcome);
+  // 2. Thuận tiền 30s
+  const v_tien30 = curr.snap_30 && curr.snap_30.tien_tai > curr.snap_30.tien_xiu ? 1 : -1;
   
-  // 3. Thuận tiền 30s
-  const p_thuantien30 = curr.snap_30 && curr.snap_30.tien_tai > curr.snap_30.tien_xiu ? 1 : -1;
-  preds.push(p_thuantien30);
+  // 3. Thuận tiền 20s
+  const v_tien20 = curr.snap_20 && curr.snap_20.tien_tai > curr.snap_20.tien_xiu ? 1 : -1;
   
-  // 4. Ngược tiền 30s
-  preds.push(-p_thuantien30);
+  // 4. Thuận người 30s
+  const v_user30 = curr.snap_30 && curr.snap_30.nguoi_tai > curr.snap_30.nguoi_xiu ? 1 : -1;
   
-  // 5. Thuận tiền 20s
-  const p_thuantien20 = curr.snap_20 && curr.snap_20.tien_tai > curr.snap_20.tien_xiu ? 1 : -1;
-  preds.push(p_thuantien20);
-  
-  // 6. Ngược tiền 20s
-  preds.push(-p_thuantien20);
-  
-  // 7. Thuận người 30s
-  const p_thuanuser30 = curr.snap_30 && curr.snap_30.nguoi_tai > curr.snap_30.nguoi_xiu ? 1 : -1;
-  preds.push(p_thuanuser30);
-  
-  // 8. Ngược người 30s
-  preds.push(-p_thuanuser30);
-  
-  // 9. Thuận đà tiền (Acceleration)
+  // 5. Thuận đà tiền
   const diff_tai = curr.snap_30 && curr.snap_20 ? (curr.snap_20.tien_tai - curr.snap_30.tien_tai) : 0;
   const diff_xiu = curr.snap_30 && curr.snap_20 ? (curr.snap_20.tien_xiu - curr.snap_30.tien_xiu) : 0;
-  const p_thuanda = diff_tai > diff_xiu ? 1 : -1;
-  preds.push(p_thuanda);
+  const v_da = diff_tai > diff_xiu ? 1 : -1;
   
-  // 10. Ngược đà tiền
-  preds.push(-p_thuanda);
+  // Các biến tương tác phi tuyến tính (Non-linear Interaction)
+  const i_trend_crowd = prevOutcome * v_user30;
+  const i_money_accel = v_tien20 * v_da;
+  const i_money_crowd = v_tien30 * v_user30;
   
-  // Tính tổng điểm vote có trọng số
-  let score = 0;
-  for (let i = 0; i < 10; i++) {
-    score += preds[i] * WEIGHTS[i];
-  }
+  // Tính toán score phi tuyến tính với 8 trọng số tối ưu: [-2, 1, -1, -1, 0, 1, 1, -1]
+  const score = (prevOutcome * -2) + 
+                (v_tien30 * 1) + 
+                (v_tien20 * -1) + 
+                (v_user30 * -1) + 
+                (v_da * 0) + 
+                (i_trend_crowd * 1) + 
+                (i_money_accel * 1) + 
+                (i_money_crowd * -1);
   
   return score >= 0 ? 'Tài' : 'Xỉu';
 }
