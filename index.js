@@ -143,17 +143,19 @@ function addServerLog(msg) {
 async function resolveTinProxy(apiKey) {
   const get = (url) => new Promise((resolve) => {
     const https = require('https');
+    console.log(`[TinProxy Request] GET ${url}`);
     https.get(url, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
-        try { resolve(JSON.parse(data)); } catch(e) { resolve(null); }
+        try { resolve(JSON.parse(data)); } catch(e) { resolve({ error: e.message, raw: data }); }
       });
-    }).on('error', () => resolve(null));
+    }).on('error', (err) => resolve({ error: err.message }));
   });
 
   // 1. Thử lấy proxy hiện tại
   let res = await get(`https://api.tinproxy.com/proxy/get-current-proxy?api_key=${apiKey}`);
+  addServerLog(`[TinProxy API Response 1] ${JSON.stringify(res)}`);
   if (res && res.success && res.data) {
     const proxyStr = res.data.http_ipv4 || res.data.socks5 || res.data.proxy;
     if (proxyStr) return proxyStr;
@@ -161,6 +163,7 @@ async function resolveTinProxy(apiKey) {
   
   // 2. Nếu không được, đổi IP mới
   res = await get(`https://api.tinproxy.com/proxy/get-new-ip?api_key=${apiKey}`);
+  addServerLog(`[TinProxy API Response 2] ${JSON.stringify(res)}`);
   if (res && res.success && res.data) {
     const proxyStr = res.data.http_ipv4 || res.data.socks5 || res.data.proxy;
     if (proxyStr) return proxyStr;
