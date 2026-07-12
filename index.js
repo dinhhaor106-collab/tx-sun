@@ -40,8 +40,8 @@ let snapshotted30 = false;
 let snapshotted20 = false;
 let frozenSnapshots = new Map(); // Lưu snapshot tạm thời chờ kết quả: sessionId -> record
 
-// Biến điều khiển thuật toán Ensemble tối ưu hóa (Win rate 67.71%, Max losses = 3)
-const WEIGHTS = [1.0, 0.0, -3.0, 0.0, 3.0, 0.0, -4.0, 0.0, -3.0, 0.0];
+// Biến điều khiển thuật toán Ensemble tối ưu hóa (Win rate 50.27%, Max losses = 4 trên 387 phiên)
+const WEIGHTS = [-4.0, 0.0, -1.0, 0.0, -2.0, 0.0, 3.0, 0.0, 2.0, 0.0];
 let consecLosses = 0;
 let currentPrediction = null;
 let prevSessionRecord = null;
