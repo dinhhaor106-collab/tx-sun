@@ -609,7 +609,32 @@ app.post('/api/bot/update-state', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// ===== CÁC ENDPOINT ĐỒNG BỘ DATA & LỊCH SỬ CŨ =====
+// Endpoint chụp ảnh màn hình và lấy DOM để debug giao diện thực tế của Sunwin trên Railway
+app.get('/api/bot/debug', async (req, res) => {
+  if (!activePage) {
+    return res.send("<h1>Không có trang activePage nào đang chạy!</h1><p>Vui lòng bấm Khởi chạy Bot trên điện thoại trước khi gọi link debug này.</p>");
+  }
+  try {
+    const screenshotBuffer = await activePage.screenshot({ type: 'png' });
+    const dom = await activePage.evaluate(() => {
+      return {
+        htmlLength: document.documentElement.outerHTML.length,
+        inputs: Array.from(document.querySelectorAll('input')).map(i => ({
+          type: i.type,
+          placeholder: i.placeholder,
+          id: i.id,
+          className: i.className
+        })),
+        iframes: Array.from(document.querySelectorAll('iframe')).map(f => f.src),
+        buttons: Array.from(document.querySelectorAll('button')).map(b => b.textContent.trim())
+      };
+    });
+    res.setHeader('Content-Type', 'image/png');
+    res.send(screenshotBuffer);
+  } catch (e) {
+    res.status(500).send(`Lỗi debug: ${e.message}`);
+  }
+});
 
 app.post('/api/sync-result', (req, res) => {
   const { phien, ket_qua, xuc_xac, tong_diem, du_doan, snap_30, snap_20, money_flow } = req.body;
