@@ -334,6 +334,61 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     }
     addServerLog(`🎮 Đã tìm thấy Engine Cocos tại Frame: "${activeFrame === activePage ? 'Trang chính' : activeFrame.url()}"`);
 
+    // Bước trung gian: Click vào nút game trong landing page Cocos để vào sảnh thật
+    addServerLog("🎯 Đang click vào biểu tượng game để vào sảnh chính...");
+    const landingClickResult = await activeFrame.evaluate(() => {
+      try {
+        const scene = cc.director.getScene();
+        if (!scene) return "Không tìm thấy scene";
+        
+        const forceClick = (node) => {
+          if (!node) return;
+          try { node.emit('click', node); } catch(e) {}
+          try { node.emit(cc.Node.EventType.TOUCH_START); node.emit(cc.Node.EventType.TOUCH_END); } catch(e) {}
+          const comps = node._components || node.components || [];
+          for (const c of comps) {
+            if (c && c.clickEvents && c.clickEvents.length > 0) {
+              try { cc.Component.EventHandler.emitEvents(c.clickEvents, {}); } catch(e) {}
+            }
+          }
+          for (const child of (node.children || [])) forceClick(child);
+        };
+
+        // Tìm nút game: ico-game-pack hoặc bất kỳ node con đang active của Canvas
+        const findEntryBtn = (root) => {
+          const search = (node) => {
+            if (!node) return null;
+            const nameLower = (node.name || '').toLowerCase();
+            if (nameLower.includes('game') || nameLower.includes('ico') || nameLower.includes('play') || nameLower.includes('enter')) {
+              return node;
+            }
+            for (const child of (node.children || [])) {
+              const r = search(child);
+              if (r) return r;
+            }
+            return null;
+          };
+          return search(root);
+        };
+        
+        const btn = findEntryBtn(scene);
+        if (btn) {
+          forceClick(btn);
+          return `Đã click node "${btn.name}" để vào sảnh game`;
+        }
+        // Fallback: click tất cả children của Canvas
+        for (const child of (scene.children || [])) forceClick(child);
+        return `Đã click tất cả ${scene.children.length} node con của Canvas`;
+      } catch(e) {
+        return "Lỗi: " + e.message;
+      }
+    });
+    addServerLog(`🎯 Kết quả click Landing: ${landingClickResult}`);
+
+    // Chờ sảnh game thật load (có btn_login)
+    addServerLog("⏳ Đang chờ sảnh game thật load sau khi click (tối đa 20s)...");
+    await new Promise(r => setTimeout(r, 3000));
+
     addServerLog("🔑 Đang tìm nút Đăng nhập trên Header (chờ tối đa 15s)...");
     let btnHeaderFound = false;
     for (let attempt = 0; attempt < 15; attempt++) {
