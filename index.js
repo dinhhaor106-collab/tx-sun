@@ -187,17 +187,26 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
 
     addServerLog("⏳ Đang chờ hệ thống game tải (Cocos Creator Engine)...");
     let ccReady = false;
+    let activeFrame = activePage;
     for (let i = 0; i < 60; i++) {
-      ccReady = await activePage.evaluate(() => {
-        try { return !!(window.cc && cc.director && cc.director.getScene()); } catch(e) { return false; }
-      });
+      for (const frame of activePage.frames()) {
+        const hasCC = await frame.evaluate(() => {
+          try { return !!(window.cc && cc.director && cc.director.getScene()); } catch(e) { return false; }
+        });
+        if (hasCC) {
+          ccReady = true;
+          activeFrame = frame;
+          break;
+        }
+      }
       if (ccReady) break;
       await new Promise(r => setTimeout(r, 1000));
     }
     if (!ccReady) throw new Error("Không thể tải engine game. Vui lòng kiểm tra lại đường truyền.");
+    addServerLog(`🎮 Đã tìm thấy Engine Cocos tại Frame: "${activeFrame === activePage ? 'Trang chính' : activeFrame.url()}"`);
 
     addServerLog("🔑 Đang kích hoạt nút Đăng nhập trên Header...");
-    await activePage.evaluate(() => {
+    await activeFrame.evaluate(() => {
       try {
         const scene = cc.director.getScene();
         
@@ -242,7 +251,7 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     await new Promise(r => setTimeout(r, 1500));
 
     // Kiểm tra xem captcha có active không
-    const captchaActive = await activePage.evaluate(() => {
+    const captchaActive = await activeFrame.evaluate(() => {
       try {
         const scene = cc.director.getScene();
         const findEditBoxInNode = (node) => {
@@ -300,7 +309,7 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     }
 
     addServerLog("✍️ Đang tự động đăng nhập...");
-    const loginResult = await activePage.evaluate((user, pass, capVal) => {
+    const loginResult = await activeFrame.evaluate((user, pass, capVal) => {
       try {
         const scene = cc.director.getScene();
         if (!scene) return { success: false, reason: "Không tìm thấy scene" };
@@ -394,7 +403,7 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
 
     if (!loginResult.success) {
       addServerLog(`⚠️ Thử đăng nhập dự phòng (HTML): ${loginResult.reason}`);
-      await activePage.evaluate((user, pass) => {
+      await activeFrame.evaluate((user, pass) => {
         const inputs = Array.from(document.querySelectorAll('input'));
         const userInput = inputs.find(i => i.type === 'text' || i.placeholder.toLowerCase().includes('tên') || i.placeholder.toLowerCase().includes('tài khoản'));
         const passInput = inputs.find(i => i.type === 'password' || i.placeholder.toLowerCase().includes('mật khẩu'));
@@ -417,7 +426,7 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     await new Promise(r => setTimeout(r, 15000));
 
     addServerLog("🎮 Đang tự động tìm và mở bảng cược Tài Xỉu...");
-    await activePage.evaluate(() => {
+    await activeFrame.evaluate(() => {
       try {
         const scene = cc.director.getScene();
         const findNodeByName = (node, targetName) => {
@@ -462,7 +471,7 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     addServerLog("🎲 Đang chờ bảng cược Tài Xỉu đồng bộ dữ liệu...");
     let txReady = false;
     for (let i = 0; i < 60; i++) {
-      txReady = await activePage.evaluate(() => {
+      txReady = await activeFrame.evaluate(() => {
         try {
           const scene = cc.director.getScene();
           const findNode = (n) => {
