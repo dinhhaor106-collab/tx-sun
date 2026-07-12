@@ -433,6 +433,24 @@ app.get('/api/history', (req, res) => {
   });
 });
 
+// Thêm endpoint xóa dữ liệu cũ
+app.get('/api/clear-history', (req, res) => {
+  const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
+  if (fs.existsSync(filePath)) {
+    fs.unlink(filePath, (err) => {
+      if (err) return res.status(500).json({ error: 'Lỗi xóa file lịch sử' });
+      consecLosses = 0;
+      currentPrediction = null;
+      prevSessionRecord = null;
+      frozenSnapshots.clear();
+      console.log('[🧹 CLEAR] Đã xóa toàn bộ lịch sử dữ liệu cũ thành công!');
+      res.send('<h1>✅ Đã xóa sạch dữ liệu lịch sử cũ thành công!</h1><p>Bot sẽ bắt đầu thu thập lại từ đầu.</p>');
+    });
+  } else {
+    res.send('<h1>ℹ️ Không có dữ liệu cũ để xóa.</h1>');
+  }
+});
+
 app.get('/', (req, res) => {
   res.json({
     name: "Sunwin Perfect Prediction API",
