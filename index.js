@@ -117,8 +117,12 @@ function saveCompletedRecord(record) {
 let activeBrowser = null;
 let activePage = null;
 
+let captchaResolver = null;
+let captchaRejecter = null;
+
 let botState = {
   running: false,
+  waitingCaptcha: false,
   currentSession: "---",
   timerVal: null,
   prediction: "---",
@@ -192,107 +196,153 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
     }
     if (!ccReady) throw new Error("Không thể tải engine game. Vui lòng kiểm tra lại đường truyền.");
 
-    addServerLog("🔑 Đang tìm kiếm Form Đăng nhập...");
-    let loginFormFound = false;
-    for (let i = 0; i < 30; i++) {
-      loginFormFound = await activePage.evaluate(() => {
-        try {
-          const scene = cc.director.getScene();
-          if (!scene) return false;
-          const findEditBoxes = (node, results = []) => {
-            if (!node) return results;
-            const editBox = node.getComponent(cc.EditBox);
-            if (editBox) {
-              results.push(node.name.toLowerCase());
+    addServerLog("🔑 Đang kích hoạt nút Đăng nhập trên Header...");
+    await activePage.evaluate(() => {
+      try {
+        const scene = cc.director.getScene();
+        const findNodeByName = (node, target) => {
+          if (!node) return null;
+          if (node.name === target) return node;
+          for (const c of (node.children || [])) {
+            const r = findNodeByName(c, target);
+            if (r) return r;
+          }
+          return null;
+        };
+        const btnHeaderLogin = findNodeByName(scene, "btn_login");
+        if (btnHeaderLogin) {
+          const comps = btnHeaderLogin._components || btnHeaderLogin.components || [];
+          for (const c of comps) {
+            if (c && c.clickEvents && c.clickEvents.length > 0) {
+              cc.Component.EventHandler.emitEvents(c.clickEvents, {});
             }
-            for (const child of (node.children || [])) {
-              findEditBoxes(child, results);
-            }
-            return results;
-          };
-          const boxes = findEditBoxes(scene);
-          return boxes.some(name => name.includes('user') || name.includes('pass') || name.includes('tk') || name.includes('mk') || name.includes('editbox') || name.includes('acc') || name.includes('tai_khoan'));
-        } catch(e) { return false; }
+          }
+          if (typeof btnHeaderLogin.emit === 'function') {
+            btnHeaderLogin.emit(cc.Node.EventType.TOUCH_START);
+            setTimeout(() => btnHeaderLogin.emit(cc.Node.EventType.TOUCH_END), 50);
+          }
+        }
+      } catch(e) {}
+    });
+
+    await new Promise(r => setTimeout(r, 1500));
+
+    // Kiểm tra xem captcha có active không
+    const captchaActive = await activePage.evaluate(() => {
+      try {
+        const scene = cc.director.getScene();
+        const findNodeByName = (node, target) => {
+          if (!node) return null;
+          if (node.name === target) return node;
+          for (const c of (node.children || [])) {
+            const r = findNodeByName(c, target);
+            if (r) return r;
+          }
+          return null;
+        };
+        const capNode = findNodeByName(scene, "lb_edit_box_capcha");
+        return !!(capNode && capNode.activeInHierarchy !== false);
+      } catch(e) { return false; }
+    });
+
+    let captchaCode = "";
+    if (captchaActive) {
+      addServerLog("🛡️ Phát hiện cổng game yêu cầu mã Captcha! Đang chụp màn hình...");
+      const pubDir = path.join(__dirname, 'public');
+      if (!fs.existsSync(pubDir)) fs.mkdirSync(pubDir, { recursive: true });
+
+      const screenshotPath = path.join(pubDir, 'captcha.png');
+      await activePage.screenshot({ path: screenshotPath });
+
+      botState.waitingCaptcha = true;
+      addServerLog("⏳ Đang chờ người dùng điền mã Captcha trên điện thoại...");
+
+      captchaCode = await new Promise((resolve, reject) => {
+        captchaResolver = resolve;
+        captchaRejecter = reject;
       });
-      if (loginFormFound) break;
-      // Nhấn nút đăng nhập HTML/Landing page lại nếu có
-      await activePage.evaluate(() => {
-        const elList = Array.from(document.querySelectorAll('a, button, div, span'));
-        const btn = elList.find(el => el.textContent.trim().toLowerCase() === 'đăng nhập' || el.textContent.trim().toLowerCase() === 'login');
-        if (btn) btn.click();
-      });
-      await new Promise(r => setTimeout(r, 1000));
+
+      botState.waitingCaptcha = false;
+      captchaResolver = null;
+      captchaRejecter = null;
+      addServerLog(`📥 Nhận được mã Captcha: "${captchaCode}". Đang tự động điền và đăng nhập...`);
     }
 
-    addServerLog("✍️ Đang điền tài khoản, mật khẩu...");
-    const loginResult = await activePage.evaluate((user, pass) => {
+    addServerLog("✍️ Đang tự động đăng nhập...");
+    const loginResult = await activePage.evaluate((user, pass, capVal) => {
       try {
         const scene = cc.director.getScene();
         if (!scene) return { success: false, reason: "Không tìm thấy scene" };
 
-        const findEditBoxes = (node, results = []) => {
-          if (!node) return results;
-          const editBox = node.getComponent(cc.EditBox);
-          if (editBox) {
-            results.push({ name: node.name, node, editBox });
+        const findNodeByName = (node, target) => {
+          if (!node) return null;
+          if (node.name === target) return node;
+          for (const c of (node.children || [])) {
+            const r = findNodeByName(c, target);
+            if (r) return r;
           }
-          for (const child of (node.children || [])) {
-            findEditBoxes(child, results);
-          }
-          return results;
+          return null;
         };
 
-        const findButtons = (node, results = []) => {
-          if (!node) return results;
-          const btn = node.getComponent(cc.Button);
-          if (btn) {
-            results.push({ name: node.name, node, btn });
+        const findEditBoxInNode = (node) => {
+          const comps = node._components || node.components || [];
+          for (const c of comps) {
+            if (c && ('string' in c || '_string' in c) && ('placeholder' in c || '_placeholder' in c)) return c;
           }
-          for (const child of (node.children || [])) {
-            findButtons(child, results);
-          }
-          return results;
+          return null;
         };
 
-        const boxes = findEditBoxes(scene);
-        const buttons = findButtons(scene);
+        const usrNode = findNodeByName(scene, "lb_edit_box_ten");
+        const pwdNode = findNodeByName(scene, "lb_edit_box_password");
+        const capNode = findNodeByName(scene, "lb_edit_box_capcha");
 
-        const usrBox = boxes.find(b => /user|usr|name|tk|acc|taikhoan|tentaikhoan/i.test(b.name.toLowerCase()));
-        const pwdBox = boxes.find(b => /pass|pwd|mk|matkhau/i.test(b.name.toLowerCase()));
+        const usrBox = usrNode ? findEditBoxInNode(usrNode) : null;
+        const pwdBox = pwdNode ? findEditBoxInNode(pwdNode) : null;
+        const capBox = capNode ? findEditBoxInNode(capNode) : null;
 
         if (!usrBox || !pwdBox) {
-          return { success: false, reason: `Không tìm thấy ô nhập trong game. usr found: ${!!usrBox}, pwd found: ${!!pwdBox}` };
+          return { success: false, reason: `Không tìm thấy các ô điền. UserNode: ${!!usrNode}, PwdNode: ${!!pwdNode}` };
         }
 
-        usrBox.editBox.string = user;
-        usrBox.node.emit('text-changed', usrBox.editBox);
-        if (usrBox.editBox._updateString) usrBox.editBox._updateString();
+        usrBox.string = user;
+        usrNode.emit('text-changed', usrBox);
+        if (usrBox._updateString) usrBox._updateString();
 
-        pwdBox.editBox.string = pass;
-        pwdBox.node.emit('text-changed', pwdBox.editBox);
-        if (pwdBox.editBox._updateString) pwdBox.editBox._updateString();
+        pwdBox.string = pass;
+        pwdNode.emit('text-changed', pwdBox);
+        if (pwdBox._updateString) pwdBox._updateString();
 
-        const loginBtn = buttons.find(b => /login|dangnhap|dang_nhap|submit|xacnhan|xac_nhan/i.test(b.name.toLowerCase()));
-        if (!loginBtn) {
-          return { success: false, reason: "Không tìm thấy nút đăng nhập trong game" };
+        if (capBox && capVal) {
+          capBox.string = capVal;
+          capNode.emit('text-changed', capBox);
+          if (capBox._updateString) capBox._updateString();
         }
 
-        if (loginBtn.btn.clickEvents && loginBtn.btn.clickEvents.length > 0) {
-          cc.Component.EventHandler.emitEvents(loginBtn.btn.clickEvents, {});
+        const loginPopup = findNodeByName(scene, "popup_1");
+        if (!loginPopup) return { success: false, reason: "Không tìm thấy popup ĐĂNG NHẬP" };
+
+        const btnSubmit = findNodeByName(loginPopup, "btn_login");
+        if (!btnSubmit) return { success: false, reason: "Không tìm thấy nút Xác nhận Đăng nhập (btn_login)" };
+
+        const comps = btnSubmit._components || btnSubmit.components || [];
+        for (const c of comps) {
+          if (c && c.clickEvents && c.clickEvents.length > 0) {
+            cc.Component.EventHandler.emitEvents(c.clickEvents, {});
+          }
         }
-        if (loginBtn.node && typeof loginBtn.node.emit === 'function') {
-          loginBtn.node.emit(cc.Node.EventType.TOUCH_START);
-          setTimeout(() => loginBtn.node.emit(cc.Node.EventType.TOUCH_END), 50);
+        if (typeof btnSubmit.emit === 'function') {
+          btnSubmit.emit(cc.Node.EventType.TOUCH_START);
+          setTimeout(() => btnSubmit.emit(cc.Node.EventType.TOUCH_END), 50);
         }
 
         return { success: true };
       } catch (e) {
         return { success: false, reason: e.message };
       }
-    }, username, password);
+    }, username, password, captchaCode);
 
     if (!loginResult.success) {
-      addServerLog(`⚠️ Đang thử đăng nhập dự phòng (HTML): ${loginResult.reason}`);
+      addServerLog(`⚠️ Thử đăng nhập dự phòng (HTML): ${loginResult.reason}`);
       await activePage.evaluate((user, pass) => {
         const inputs = Array.from(document.querySelectorAll('input'));
         const userInput = inputs.find(i => i.type === 'text' || i.placeholder.toLowerCase().includes('tên') || i.placeholder.toLowerCase().includes('tài khoản'));
@@ -312,7 +362,7 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
       }, username, password);
     }
 
-    addServerLog("⏳ Đăng nhập xong, đang chờ game tải chính thức...");
+    addServerLog("⏳ Đăng nhập hoàn tất, đang chờ game chuyển tiếp tải chính thức...");
     await new Promise(r => setTimeout(r, 15000));
     addServerLog("🎮 Game đã load xong! Đang chờ bạn mở bảng cược Tài Xỉu...");
 
@@ -693,6 +743,73 @@ app.post('/api/bot/stop', async (req, res) => {
 
 app.get('/api/bot/status', (req, res) => {
   res.json(botState);
+});
+
+app.post('/api/bot/submit-captcha', (req, res) => {
+  const { captchaCode } = req.body;
+  if (!captchaCode) {
+    return res.status(400).json({ status: 'error', message: 'Thiếu mã captcha' });
+  }
+  if (captchaResolver) {
+    captchaResolver(captchaCode);
+    res.json({ status: 'success', message: 'Mã captcha đã được gửi đi.' });
+  } else {
+    res.status(400).json({ status: 'error', message: 'Không có yêu cầu captcha hoạt động.' });
+  }
+});
+
+app.post('/api/bot/reload-captcha', async (req, res) => {
+  if (activePage) {
+    try {
+      addServerLog("🔄 Đang yêu cầu đổi mã captcha mới...");
+      await activePage.evaluate(() => {
+        try {
+          const scene = cc.director.getScene();
+          const findNodeByName = (node, name) => {
+            if (!node) return null;
+            if (node.name === name) return node;
+            for (const c of (node.children || [])) {
+              const r = findNodeByName(c, name);
+              if (r) return r;
+            }
+            return null;
+          };
+          const btnReload = findNodeByName(scene, "btn_reload");
+          if (btnReload) {
+            const comps = btnReload._components || btnReload.components || [];
+            for (const c of comps) {
+              if (c && c.clickEvents && c.clickEvents.length > 0) {
+                cc.Component.EventHandler.emitEvents(c.clickEvents, {});
+              }
+            }
+            if (typeof btnReload.emit === 'function') {
+              btnReload.emit(cc.Node.EventType.TOUCH_START);
+              setTimeout(() => btnReload.emit(cc.Node.EventType.TOUCH_END), 50);
+            }
+          }
+        } catch(e) {}
+      });
+
+      await new Promise(r => setTimeout(r, 1200));
+      const screenshotPath = path.join(__dirname, 'public', 'captcha.png');
+      await activePage.screenshot({ path: screenshotPath });
+
+      res.json({ status: 'success' });
+    } catch(e) {
+      res.status(500).json({ status: 'error', message: e.message });
+    }
+  } else {
+    res.status(400).json({ status: 'error', message: 'Bot chưa khởi chạy' });
+  }
+});
+
+app.get('/api/bot/captcha-screenshot', (req, res) => {
+  const screenshotPath = path.join(__dirname, 'public', 'captcha.png');
+  if (fs.existsSync(screenshotPath)) {
+    res.sendFile(screenshotPath);
+  } else {
+    res.status(404).send('Not found');
+  }
 });
 
 app.post('/api/bot/log', (req, res) => {

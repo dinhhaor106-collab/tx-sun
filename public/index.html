@@ -291,6 +291,56 @@
     .color-blue { color: var(--secondary-color); }
     .color-yellow { color: #eab308; }
     .color-gray { color: var(--text-muted); }
+
+    /* Modal Captcha */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 10000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 15px;
+    }
+
+    .modal-content {
+      background: #0f0a28;
+      border: 2px solid var(--primary-color);
+      box-shadow: 0 0 25px rgba(255, 0, 127, 0.6);
+      border-radius: 16px;
+      padding: 20px;
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .captcha-hdr {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+      text-transform: uppercase;
+      text-align: center;
+      text-shadow: 0 0 10px rgba(255, 0, 127, 0.5);
+    }
+
+    .captcha-img-box {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .captcha-img-box img {
+      width: 100%;
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -469,10 +519,69 @@
     };
 
     // Vòng lặp lấy trạng thái bot thời gian thực từ Railway
+    let isShowingCaptcha = false;
+    
+    const captchaModal = document.getElementById('captcha-modal');
+    const captchaImg = document.getElementById('captcha-screenshot');
+    const captchaInput = document.getElementById('captcha-input');
+    const btnSubmitCaptcha = document.getElementById('btn-submit-captcha');
+    const btnReloadCaptcha = document.getElementById('btn-reload-captcha');
+
+    btnSubmitCaptcha.onclick = async () => {
+      const code = captchaInput.value.trim();
+      if (!code) {
+        alert("Vui lòng nhập mã Captcha!");
+        return;
+      }
+      btnSubmitCaptcha.disabled = true;
+      btnSubmitCaptcha.textContent = "Đang gửi...";
+      try {
+        const res = await fetch('/api/bot/submit-captcha', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ captchaCode: code })
+        });
+        const data = await res.json();
+        if (data.status !== 'success') {
+          alert("Lỗi xác nhận captcha: " + data.message);
+        } else {
+          captchaInput.value = "";
+        }
+      } catch(e) {
+        alert("Lỗi kết nối submit captcha!");
+      } finally {
+        btnSubmitCaptcha.disabled = false;
+        btnSubmitCaptcha.textContent = "Xác nhận";
+      }
+    };
+
+    btnReloadCaptcha.onclick = async () => {
+      btnReloadCaptcha.disabled = true;
+      try {
+        await fetch('/api/bot/reload-captcha', { method: 'POST' });
+        setTimeout(() => {
+          captchaImg.src = '/api/bot/captcha-screenshot?t=' + Date.now();
+        }, 1500);
+      } catch(e) {}
+      btnReloadCaptcha.disabled = false;
+    };
+
     setInterval(async () => {
       try {
         const res = await fetch('/api/bot/status');
         const data = await res.json();
+
+        // Quản lý hiển thị Captcha
+        if (data.waitingCaptcha) {
+          if (!isShowingCaptcha) {
+            isShowingCaptcha = true;
+            captchaModal.style.display = 'flex';
+            captchaImg.src = '/api/bot/captcha-screenshot?t=' + Date.now();
+          }
+        } else {
+          isShowingCaptcha = false;
+          captchaModal.style.display = 'none';
+        }
 
         // 1. Cập nhật giao diện Bật/Tắt
         if (data.running) {
@@ -523,5 +632,28 @@
       } catch (e) {}
     }, 1500);
   </script>
+
+  <!-- Modal Nhập Captcha -->
+  <div class="modal-overlay" id="captcha-modal" style="display: none;">
+    <div class="modal-content">
+      <div class="captcha-hdr">🔑 NHẬP MÃ CAPTCHA GAME</div>
+      <p style="font-size: 11px; color: var(--text-muted); text-align: center;">
+        Vui lòng nhập mã Captcha hiển thị trong hình ảnh bên dưới để tiếp tục đăng nhập:
+      </p>
+      
+      <div class="captcha-img-box">
+        <img id="captcha-screenshot" src="" alt="Captcha Screenshot">
+      </div>
+
+      <div class="form-group" style="margin-top: 8px;">
+        <input type="text" id="captcha-input" placeholder="Nhập mã..." style="text-align: center; font-size: 18px; letter-spacing: 2px; text-transform: uppercase;">
+      </div>
+
+      <div class="btn-group" style="margin-top: 8px;">
+        <button class="btn-start" id="btn-submit-captcha">Xác nhận</button>
+        <button class="btn-stop" id="btn-reload-captcha" style="flex: 0 0 auto; width: auto; padding: 12px 16px;">🔄</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
