@@ -370,6 +370,25 @@
           <input type="number" id="capital" value="500000">
         </div>
       </div>
+      <div style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+        <details style="color: rgba(255,255,255,0.6); font-size: 13px; font-weight: bold; cursor: pointer;">
+          <summary style="outline:none; color: #ff007f; margin-bottom: 5px;">🌐 Cấu hình Proxy Việt Nam (Bắt buộc tránh 403)</summary>
+          <div class="form-group" style="margin-top: 10px;">
+            <label>Địa chỉ Proxy (IP:Port)</label>
+            <input type="text" id="proxyServer" placeholder="VD: 103.199.17.2:8080">
+          </div>
+          <div class="form-row" style="margin-top: 10px;">
+            <div class="form-group">
+              <label>Proxy User (nếu có)</label>
+              <input type="text" id="proxyUser" placeholder="Tài khoản...">
+            </div>
+            <div class="form-group">
+              <label>Proxy Pass (nếu có)</label>
+              <input type="password" id="proxyPass" placeholder="Mật khẩu...">
+            </div>
+          </div>
+        </details>
+      </div>
       <div class="btn-group">
         <button class="btn-start" id="btn-start">Khởi chạy Bot</button>
         <button class="btn-stop" id="btn-stop" style="display: none;">Dừng hoạt động</button>
@@ -439,6 +458,16 @@
     const passwordInput = document.getElementById('password');
     const baseBetInput = document.getElementById('baseBet');
     const capitalInput = document.getElementById('capital');
+    const proxyServerInput = document.getElementById('proxyServer');
+    const proxyUserInput = document.getElementById('proxyUser');
+    const proxyPassInput = document.getElementById('proxyPass');
+
+    // Khôi phục cấu hình từ localStorage
+    usernameInput.value = localStorage.getItem('sun_username') || '';
+    passwordInput.value = localStorage.getItem('sun_password') || '';
+    proxyServerInput.value = localStorage.getItem('sun_proxyServer') || '';
+    proxyUserInput.value = localStorage.getItem('sun_proxyUser') || '';
+    proxyPassInput.value = localStorage.getItem('sun_proxyPass') || '';
 
     const statSession = document.getElementById('stat-session');
     const statTimer = document.getElementById('stat-timer');
@@ -470,11 +499,21 @@
       const password = passwordInput.value.trim();
       const baseBet = parseFloat(baseBetInput.value) || 1000;
       const capital = parseFloat(capitalInput.value) || 500000;
+      const proxyServer = proxyServerInput.value.trim();
+      const proxyUser = proxyUserInput.value.trim();
+      const proxyPass = proxyPassInput.value.trim();
 
       if (!username || !password) {
         alert("Vui lòng điền tài khoản và mật khẩu game!");
         return;
       }
+
+      // Lưu lại cấu hình để lần sau không cần nhập lại
+      localStorage.setItem('sun_username', username);
+      localStorage.setItem('sun_password', password);
+      localStorage.setItem('sun_proxyServer', proxyServer);
+      localStorage.setItem('sun_proxyUser', proxyUser);
+      localStorage.setItem('sun_proxyPass', proxyPass);
 
       btnStart.disabled = true;
       btnStart.textContent = "Đang khởi động...";
@@ -483,7 +522,7 @@
         const res = await fetch('/api/bot/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password, baseBet, capital })
+          body: JSON.stringify({ username, password, baseBet, capital, proxyServer, proxyUser, proxyPass })
         });
         const data = await res.json();
         if (data.status === 'success') {

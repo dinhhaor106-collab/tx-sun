@@ -140,7 +140,7 @@ function addServerLog(msg) {
   if (botState.logs.length > 40) botState.logs.shift();
 }
 
-async function startPuppeteerBot(username, password, baseBet, capital) {
+async function startPuppeteerBot(username, password, baseBet, capital, proxyServer, proxyUser, proxyPass) {
   if (activeBrowser) {
     await stopPuppeteerBot();
   }
@@ -150,18 +150,33 @@ async function startPuppeteerBot(username, password, baseBet, capital) {
   addServerLog("🚀 Khởi động trình duyệt ảo Chromium ngầm...");
 
   try {
+    const launchArgs = [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--window-size=1280,720'
+    ];
+
+    if (proxyServer) {
+      addServerLog(`🌐 Sử dụng Proxy kết nối: "${proxyServer}"`);
+      launchArgs.push(`--proxy-server=${proxyServer}`);
+    }
+
     activeBrowser = await puppeteer.launch({
       headless: "new",
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--window-size=1280,720'
-      ]
+      args: launchArgs
     });
     activePage = await activeBrowser.newPage();
     await activePage.setViewport({ width: 1280, height: 720 });
+
+    if (proxyServer && proxyUser && proxyPass) {
+      addServerLog(`🔐 Thực hiện xác thực Proxy: User = "${proxyUser}"`);
+      await activePage.authenticate({
+        username: proxyUser,
+        password: proxyPass
+      });
+    }
 
     // Đăng ký bắt lỗi console từ trình duyệt ảo
     activePage.on('console', msg => {
@@ -875,13 +890,13 @@ async function stopPuppeteerBot() {
 // ===== HTTP ENDPOINTS ĐIỀU KHIỂN BOT DI ĐỘNG =====
 
 app.post('/api/bot/start', (req, res) => {
-  const { username, password, baseBet, capital } = req.body;
+  const { username, password, baseBet, capital, proxyServer, proxyUser, proxyPass } = req.body;
   if (!username || !password) {
     return res.status(400).json({ status: 'error', message: 'Thiếu thông tin đăng nhập' });
   }
 
   // Chạy nền không chặn request trả về điện thoại
-  startPuppeteerBot(username, password, baseBet, capital);
+  startPuppeteerBot(username, password, baseBet, capital, proxyServer, proxyUser, proxyPass);
   res.json({ status: 'success', message: 'Đang khởi chạy ngầm...' });
 });
 
