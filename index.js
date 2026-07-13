@@ -280,7 +280,6 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       { urlPattern: '*configs5533647*' },
       { urlPattern: '*configs-v363*' },
       { urlPattern: '*all-in-one-363*' },
-      { urlPattern: '*azhkthg1*' },
       { urlPattern: '*dev-yon*' },
       { urlPattern: '*web_s_config*' }
     ];
