@@ -279,7 +279,10 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       { urlPattern: '*swebv363*' },
       { urlPattern: '*configs5533647*' },
       { urlPattern: '*configs-v363*' },
-      { urlPattern: '*all-in-one-363*' }
+      { urlPattern: '*all-in-one-363*' },
+      { urlPattern: '*azhkthg1*' },
+      { urlPattern: '*dev-yon*' },
+      { urlPattern: '*web_s_config*' }
     ];
     await cdpSession.send('Fetch.enable', { patterns: CONFIG_PATTERNS });
     cdpSession.on('Fetch.requestPaused', async ({ requestId, request }) => {
@@ -470,6 +473,27 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       throw new Error("Không thể tải engine game. Vui lòng kiểm tra lại đường truyền.");
     }
     addServerLog(`🎮 Đã tìm thấy Engine Cocos tại Frame: "${activeFrame === activePage ? 'Trang chính' : activeFrame.url()}"`);
+
+    // === DIAGNOSTIC: Tải đoạn code newSession() từ game bundle để xem cơ chế fetch ===
+    try {
+      const gameCodeSnippet = await activeFrame.evaluate(async () => {
+        try {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', 'https://web.sunwin.best/assets/main/index.1974b.js', false); // sync
+          xhr.setRequestHeader('Range', 'bytes=83100-84200');
+          xhr.send();
+          if (xhr.status === 206 || xhr.status === 200) {
+            return xhr.responseText.substring(0, 800);
+          }
+          return 'XHR status: ' + xhr.status;
+        } catch(e) {
+          return 'XHR error: ' + e.message;
+        }
+      });
+      addServerLog(`🔬 [GAME CODE] newSession ~83590: ${gameCodeSnippet}`);
+    } catch(e) {
+      addServerLog(`⚠️ Không tải được game code: ${e.message}`);
+    }
 
     // Bước trung gian: Click vào nút game trong landing page Cocos để vào sảnh thật
     addServerLog("🎯 Đang click vào biểu tượng game để vào sảnh chính...");
