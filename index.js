@@ -245,7 +245,45 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
 
     // ===== CDP-LEVEL NETWORK INTERCEPTION (chặn cả Service Worker requests) =====
     const cdpSession = await activePage.target().createCDPSession();
-    const MOCK_CONFIG = JSON.stringify({ tracking_url: "", ads_url: "", version: "363", status: 1, msg: "ok" });
+    const REAL_DOMAINS_CONFIG = {
+      "host_domain": "https://cfg.azhkthg1.com/",
+      "api_domain": "https://api.azhkthg1.com/",
+      "phising_domain": "https://sara.eu.com/",
+      "gemwin_lp_url": "gemwin.spot",
+      "lp_domain": "https://sunwin.best/",
+      "lp_domain_zo": "https://zowin.fan/",
+      "lp_domain_nhat": "https://nhat.day/",
+      "rs_domain": "https://staticmt.net/",
+      "sport_domain": "https://sport.azhkthg1.com/",
+      "web_domains": {
+        "sun.win": "https://web.sunwin.best/",
+        "nhat.vip": "https://play.nhat.day/",
+        "zo.win": "https://play.zowin.fan/"
+      },
+      "xdtt_livestream_video_url": "xocdiathuytinh_withautoplay_213_v004f.html",
+      "phising_livestream_video_url": "phising_livestream_withautoplay_213_v025k.html",
+      "tx_livestream_video_url": "internal/livestream_page/taixiulive_withautoplay_213_017d.html",
+      "tx_livestream_video_url_nosound": "internal/livestream_page/taixiulive_nosound_213_017d.html",
+      "xd_livestream_video_url": "internal/livestream_page/xocdialive_withautoplay_213_017d.html",
+      "xd_livestream_video_url_nosound": "internal/livestream_page/xocdialive_nosound_213_017d.html",
+      "tx88_livestream_auth_video_url": "internal/livestream_page/sicbolive_withautoplay_02w.html",
+      "streamUrls": {
+        "stream": {
+          "tx88_livestream_auth_video_url": "internal/livestream_page/sicbolive_withautoplay_02w.html",
+          "bacc_livestream_video_url": "internal/livestream_page/baccarat_live_withautoplay.html",
+          "tx_livestream_video_url": "internal/livestream_page/taixiulive_withautoplay_213_017d.html",
+          "tx_livestream_video_url_nosound": "internal/livestream_page/taixiulive_nosound_213_017d.html",
+          "xd_livestream_video_url": "internal/livestream_page/xocdialive_withautoplay_213_017d.html",
+          "xd_livestream_video_url_nosound": "internal/livestream_page/xocdialive_nosound_213_017d.html"
+        }
+      },
+      "tracking_url": "",
+      "ads_url": "",
+      "version": "363",
+      "status": 1,
+      "msg": "ok"
+    };
+    const MOCK_CONFIG = JSON.stringify(REAL_DOMAINS_CONFIG);
     const CONFIG_PATTERNS = [
       { urlPattern: '*gitlab*' },
       { urlPattern: '*swebv363*' },
@@ -274,18 +312,17 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     });
 
     // Giữ JS-level patch làm dự phòng + unregister SW cũ
-    await activePage.evaluateOnNewDocument(() => {
+    await activePage.evaluateOnNewDocument((mockConfigStr) => {
       if ('serviceWorker' in navigator) {
         const origRegister = navigator.serviceWorker.register.bind(navigator.serviceWorker);
         navigator.serviceWorker.register = function(scriptURL, options) {
-          // Vẫn cho phép đăng ký SW để game không crash, nhưng xóa cache cũ
           const p = origRegister(scriptURL, options);
           navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
           return p;
         };
       }
       const origFetch = window.fetch;
-      const MOCK = JSON.stringify({ tracking_url: "", ads_url: "", version: "363", status: 1, msg: "ok" });
+      const MOCK = mockConfigStr;
       const isMock = (url) => {
         const s = typeof url === 'string' ? url : (url && url.url) || '';
         return s.includes('gitlab') || s.includes('swebv363') || s.includes('configs5533647') || s.includes('all-in-one-363');
@@ -300,7 +337,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         }
         return origFetch.apply(this, arguments);
       };
-    });
+    }, MOCK_CONFIG);
 
     addServerLog("🔧 CDP + JS fetch patch đã cài đặt. Mock config GitLab sẵn sàng.");
     addServerLog("🧭 Đang truy cập trang chủ game Sunwin...");
