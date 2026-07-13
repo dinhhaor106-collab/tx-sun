@@ -243,57 +243,66 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       addServerLog(`[BROWSER ERROR] ${err.toString()}`);
     });
 
-    // Chặn request GitLab config (hay bị lỗi CORS/tunnel) và trả về mock để game không crash
-    await activePage.setRequestInterception(true);
-    activePage.on('request', (request) => {
-      try {
-        const url = request.url();
-        const urlLower = url.toLowerCase();
-        // Mock bất kỳ request nào đến GitLab hoặc chứa file config để triệt tiêu lỗi tracking_url
-        if (urlLower.includes('gitlab') || urlLower.includes('configs') || urlLower.includes('swebv363.json') || urlLower.includes('sweb')) {
-          if (request.method() === 'OPTIONS') {
-            request.respond({
-              status: 200,
-              headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': '*',
-                'Access-Control-Allow-Methods': '*'
-              },
-              body: 'OK'
-            }).catch(() => {});
-          } else {
-            request.respond({
-              status: 200,
-              headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': '*',
-                'Access-Control-Allow-Methods': '*'
-              },
-              contentType: 'application/json',
-              body: JSON.stringify({
-                tracking_url: "",
-                ads_url: "",
-                version: "363",
-                status: 1,
-                msg: "ok"
-              })
-            }).catch(() => {});
-          }
-        } else {
-          request.continue().catch(() => {});
-        }
-      } catch (e) {
-        // Tránh crash nếu request đã hoàn thành hoặc page đã đóng
+    // ===== PATCH FETCH/XHR Ở MỨC JS TRƯỚC KHI GAME CHẠY =====
+    // Service Worker có thể bypass setRequestInterception, nên patch trực tiếp tại JS level
+    await activePage.evaluateOnNewDocument(() => {
+      // 1. Unregister Service Workers để xóa cache cũ
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
       }
+
+      // 2. Patch window.fetch để mock các request config bị lỗi CORS/tunnel
+      const origFetch = window.fetch;
+      const MOCK_RESPONSE = JSON.stringify({ tracking_url: "", ads_url: "", version: "363", status: 1, msg: "ok" });
+      const isMockUrl = (url) => {
+        const s = typeof url === 'string' ? url : (url && url.url) || '';
+        return s.includes('gitlab') || s.includes('swebv363') || s.includes('configs5533647') || s.includes('configs-v363');
+      };
+      window.fetch = function(url, opts) {
+        if (isMockUrl(url)) {
+          return Promise.resolve(new Response(MOCK_RESPONSE, {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+          }));
+        }
+        return origFetch.apply(this, arguments);
+      };
+
+      // 3. Patch XMLHttpRequest để mock các request dùng XHR
+      const origOpen = XMLHttpRequest.prototype.open;
+      const origSend = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function(method, url, ...args) {
+        if (isMockUrl(url)) this._isMock = true;
+        return origOpen.apply(this, [method, url, ...args]);
+      };
+      XMLHttpRequest.prototype.send = function(data) {
+        if (this._isMock) {
+          const self = this;
+          setTimeout(() => {
+            try {
+              Object.defineProperty(self, 'readyState', { value: 4, configurable: true });
+              Object.defineProperty(self, 'status', { value: 200, configurable: true });
+              Object.defineProperty(self, 'responseText', { value: MOCK_RESPONSE, configurable: true });
+              Object.defineProperty(self, 'response', { value: MOCK_RESPONSE, configurable: true });
+              if (self.onreadystatechange) self.onreadystatechange();
+              if (self.onload) self.onload({ target: self });
+            } catch(e) {}
+          }, 10);
+          return;
+        }
+        return origSend.apply(this, arguments);
+      };
     });
 
+    addServerLog("🔧 Đã cài đặt JS patch cho fetch/XHR để mock config GitLab.");
     addServerLog("🧭 Đang truy cập trang chủ game Sunwin...");
     let loaded = false;
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        await activePage.goto('https://web.sunwin.best/?affId=Sunwin', { waitUntil: 'load', timeout: 60000 });
+        await activePage.goto('https://web.sunwin.best/?affId=Sunwin', { waitUntil: 'domcontentloaded', timeout: 60000 });
         loaded = true;
         break;
+
       } catch (e) {
         addServerLog(`⚠️ Thử truy cập lần ${attempt} thất bại: ${e.message}`);
         if (attempt < 3) {
