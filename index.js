@@ -219,7 +219,8 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       '--use-angle=swiftshader',
       '--ignore-gpu-blocklist',
       '--disable-gpu-program-cache',
-      '--disable-gpu-shader-disk-cache'
+      '--disable-gpu-shader-disk-cache',
+      '--proxy-bypass-list=raw.githubusercontent.com,githubusercontent.com'
     ];
 
     if (finalProxy) {
@@ -300,40 +301,77 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       }
     });
 
-    // Giữ JS-level patch làm dự phòng + chặn đứng đăng ký SW
+    // ===== TRIPLE-LAYER JS DEFENSE AGAINST NULL CONFIG =====
     await activePage.evaluateOnNewDocument((mockConfigStr) => {
+      const MOCK = JSON.parse(mockConfigStr);
+      const CONFIG_URL_KEYWORDS = ['swebv363', 'gitlab', 'configs5533647', 'all-in-one-363', 'dev-yon', 'web_s_config'];
+      const isConfigUrl = (url) => {
+        const s = typeof url === 'string' ? url : (url && url.url) || '';
+        return CONFIG_URL_KEYWORDS.some(k => s.includes(k));
+      };
+
+      // Layer 1: Block SW registration completely
       if ('serviceWorker' in navigator) {
-        // Hủy đăng ký tất cả SW đang hoạt động
         navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
-        
-        // Mock register để chặn đứng hoàn toàn việc đăng ký SW mới
         navigator.serviceWorker.register = function(scriptURL, options) {
-          console.log('[BOT] Đã chặn đăng ký Service Worker cho script:', scriptURL);
-          return Promise.resolve({
-            scope: options?.scope || '',
-            unregister: () => Promise.resolve(true),
-            update: () => Promise.resolve(),
-            addEventListener: () => {},
-            removeEventListener: () => {}
-          });
+          console.log('[BOT] Blocked SW registration:', scriptURL);
+          return Promise.resolve({ scope: options?.scope || '/', unregister: () => Promise.resolve(true), update: () => Promise.resolve(), addEventListener: () => {}, removeEventListener: () => {} });
         };
       }
-      const origFetch = window.fetch;
-      const MOCK = mockConfigStr;
-      const isMock = (url) => {
-        const s = typeof url === 'string' ? url : (url && url.url) || '';
-        return s.includes('gitlab') || s.includes('swebv363') || s.includes('configs5533647') || s.includes('all-in-one-363');
+
+      // Layer 2: Patch Response.prototype.json — intercepts the response parsing stage
+      // This works REGARDLESS of whether fetch goes through SW, CDP, or direct network
+      const origResponseJson = Response.prototype.json;
+      Response.prototype.json = function() {
+        const responseUrl = this.url || '';
+        return origResponseJson.call(this).then(data => {
+          if (data === null || data === undefined) {
+            if (isConfigUrl(responseUrl)) {
+              console.log('[BOT] Response.json() returned null for config URL, replacing with mock. URL:', responseUrl);
+              return MOCK;
+            }
+          }
+          return data;
+        }).catch(err => {
+          if (isConfigUrl(responseUrl)) {
+            console.log('[BOT] Response.json() threw error for config URL, returning mock. URL:', responseUrl);
+            return MOCK;
+          }
+          throw err;
+        });
       };
+
+      // Layer 3: Patch window.fetch as tertiary fallback
+      const origFetch = window.fetch;
       window.fetch = function(url, opts) {
-        if (isMock(url)) {
-          console.log('[BOT MOCK FETCH]', typeof url === 'string' ? url : url.url);
-          return Promise.resolve(new Response(MOCK, {
+        const urlStr = typeof url === 'string' ? url : (url && url.url) || '';
+        if (isConfigUrl(urlStr)) {
+          console.log('[BOT MOCK FETCH] Intercepted config URL:', urlStr);
+          return Promise.resolve(new Response(JSON.stringify(MOCK), {
             status: 200,
+            url: urlStr,
             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
           }));
         }
         return origFetch.apply(this, arguments);
       };
+
+      // Layer 4: Backstop JSON.parse — if null sneaks through, replace it
+      const origJSONParse = JSON.parse;
+      JSON.parse = function(text, ...args) {
+        const result = origJSONParse(text, ...args);
+        if (result === null && typeof text === 'string' && text.trim() === 'null') {
+          // Only replace top-level nulls during scene initialization window
+          if (window.__botConfigInterceptActive) {
+            console.log('[BOT] JSON.parse got literal null, returning mock config');
+            return MOCK;
+          }
+        }
+        return result;
+      };
+      // Activate interception from page start until scene is fully loaded
+      window.__botConfigInterceptActive = true;
+
     }, MOCK_CONFIG);
 
     addServerLog("🔧 CDP + JS fetch patch đã cài đặt. Mock config GitLab sẵn sàng.");
