@@ -116,6 +116,7 @@ function saveCompletedRecord(record) {
 // ======================== API BOT DÀNH CHO ĐIỆN THOẠI ========================
 let activeBrowser = null;
 let activePage = null;
+let isStarting = false;
 
 let captchaResolver = null;
 let captchaRejecter = null;
@@ -1133,6 +1134,10 @@ async function stopPuppeteerBot() {
 app.post('/api/bot/start', (req, res) => {
   const { username, password, baseBet, capital, proxyServer, proxyUser, proxyPass } = req.body;
   
+  if (botState.running || isStarting) {
+    return res.status(400).json({ status: 'error', message: 'Bot đang chạy hoặc đang trong quá trình khởi động.' });
+  }
+  
   console.log(`📝 [DASHBOARD] Nhận lệnh khởi chạy bot cho tài khoản: "${username}"`);
   addServerLog(`📝 Nhận lệnh khởi chạy bot cho tài khoản: "${username}"`);
 
@@ -1140,8 +1145,16 @@ app.post('/api/bot/start', (req, res) => {
     return res.status(400).json({ status: 'error', message: 'Thiếu thông tin đăng nhập' });
   }
 
+  isStarting = true;
   // Chạy nền không chặn request trả về điện thoại
-  startPuppeteerBot(username, password, baseBet, capital, proxyServer, proxyUser, proxyPass);
+  startPuppeteerBot(username, password, baseBet, capital, proxyServer, proxyUser, proxyPass)
+    .catch(err => {
+      addServerLog(`❌ Lỗi khởi chạy: ${err.message}`);
+    })
+    .finally(() => {
+      isStarting = false;
+    });
+
   res.json({ status: 'success', message: 'Đang khởi chạy ngầm...' });
 });
 
