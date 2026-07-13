@@ -243,58 +243,66 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       addServerLog(`[BROWSER ERROR] ${err.toString()}`);
     });
 
-    // ===== PATCH FETCH/XHR Ở MỨC JS TRƯỚC KHI GAME CHẠY =====
-    // Service Worker có thể bypass setRequestInterception, nên patch trực tiếp tại JS level
-    await activePage.evaluateOnNewDocument(() => {
-      // 1. Unregister Service Workers để xóa cache cũ
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
+    // ===== CDP-LEVEL NETWORK INTERCEPTION (chặn cả Service Worker requests) =====
+    const cdpSession = await activePage.target().createCDPSession();
+    const MOCK_CONFIG = JSON.stringify({ tracking_url: "", ads_url: "", version: "363", status: 1, msg: "ok" });
+    const CONFIG_PATTERNS = [
+      { urlPattern: '*gitlab*' },
+      { urlPattern: '*swebv363*' },
+      { urlPattern: '*configs5533647*' },
+      { urlPattern: '*configs-v363*' },
+      { urlPattern: '*all-in-one-363*' }
+    ];
+    await cdpSession.send('Fetch.enable', { patterns: CONFIG_PATTERNS });
+    cdpSession.on('Fetch.requestPaused', async ({ requestId, request }) => {
+      try {
+        const b64 = Buffer.from(MOCK_CONFIG).toString('base64');
+        await cdpSession.send('Fetch.fulfillRequest', {
+          requestId,
+          responseCode: 200,
+          responseHeaders: [
+            { name: 'Content-Type', value: 'application/json' },
+            { name: 'Access-Control-Allow-Origin', value: '*' },
+            { name: 'Access-Control-Allow-Headers', value: '*' }
+          ],
+          body: b64
+        });
+        addServerLog(`🔧 [CDP] Đã mock config request: ${request.url.substring(0, 80)}...`);
+      } catch (e) {
+        try { await cdpSession.send('Fetch.continueRequest', { requestId }); } catch(e2) {}
       }
+    });
 
-      // 2. Patch window.fetch để mock các request config bị lỗi CORS/tunnel
+    // Giữ JS-level patch làm dự phòng + unregister SW cũ
+    await activePage.evaluateOnNewDocument(() => {
+      if ('serviceWorker' in navigator) {
+        const origRegister = navigator.serviceWorker.register.bind(navigator.serviceWorker);
+        navigator.serviceWorker.register = function(scriptURL, options) {
+          // Vẫn cho phép đăng ký SW để game không crash, nhưng xóa cache cũ
+          const p = origRegister(scriptURL, options);
+          navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
+          return p;
+        };
+      }
       const origFetch = window.fetch;
-      const MOCK_RESPONSE = JSON.stringify({ tracking_url: "", ads_url: "", version: "363", status: 1, msg: "ok" });
-      const isMockUrl = (url) => {
+      const MOCK = JSON.stringify({ tracking_url: "", ads_url: "", version: "363", status: 1, msg: "ok" });
+      const isMock = (url) => {
         const s = typeof url === 'string' ? url : (url && url.url) || '';
-        return s.includes('gitlab') || s.includes('swebv363') || s.includes('configs5533647') || s.includes('configs-v363');
+        return s.includes('gitlab') || s.includes('swebv363') || s.includes('configs5533647') || s.includes('all-in-one-363');
       };
       window.fetch = function(url, opts) {
-        if (isMockUrl(url)) {
-          return Promise.resolve(new Response(MOCK_RESPONSE, {
+        if (isMock(url)) {
+          console.log('[BOT MOCK FETCH]', typeof url === 'string' ? url : url.url);
+          return Promise.resolve(new Response(MOCK, {
             status: 200,
             headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
           }));
         }
         return origFetch.apply(this, arguments);
       };
-
-      // 3. Patch XMLHttpRequest để mock các request dùng XHR
-      const origOpen = XMLHttpRequest.prototype.open;
-      const origSend = XMLHttpRequest.prototype.send;
-      XMLHttpRequest.prototype.open = function(method, url, ...args) {
-        if (isMockUrl(url)) this._isMock = true;
-        return origOpen.apply(this, [method, url, ...args]);
-      };
-      XMLHttpRequest.prototype.send = function(data) {
-        if (this._isMock) {
-          const self = this;
-          setTimeout(() => {
-            try {
-              Object.defineProperty(self, 'readyState', { value: 4, configurable: true });
-              Object.defineProperty(self, 'status', { value: 200, configurable: true });
-              Object.defineProperty(self, 'responseText', { value: MOCK_RESPONSE, configurable: true });
-              Object.defineProperty(self, 'response', { value: MOCK_RESPONSE, configurable: true });
-              if (self.onreadystatechange) self.onreadystatechange();
-              if (self.onload) self.onload({ target: self });
-            } catch(e) {}
-          }, 10);
-          return;
-        }
-        return origSend.apply(this, arguments);
-      };
     });
 
-    addServerLog("🔧 Đã cài đặt JS patch cho fetch/XHR để mock config GitLab.");
+    addServerLog("🔧 CDP + JS fetch patch đã cài đặt. Mock config GitLab sẵn sàng.");
     addServerLog("🧭 Đang truy cập trang chủ game Sunwin...");
     let loaded = false;
     for (let attempt = 1; attempt <= 3; attempt++) {
