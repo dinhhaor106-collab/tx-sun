@@ -244,11 +244,31 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     }
 
     // Đăng ký bắt lỗi console từ trình duyệt ảo
-    activePage.on('console', msg => {
-      addServerLog(`[BROWSER CONSOLE] ${msg.text()}`);
+    activePage.on('console', async msg => {
+      try {
+        const textParts = [];
+        for (const arg of msg.args()) {
+          try {
+            const val = await arg.jsonValue();
+            if (val instanceof Error) {
+              textParts.push(val.stack || val.message);
+            } else if (typeof val === 'object' && val !== null) {
+              textParts.push(JSON.stringify(val));
+            } else {
+              textParts.push(String(val));
+            }
+          } catch (e) {
+            textParts.push(arg.toString()); // Fallback JSHandle
+          }
+        }
+        const text = textParts.length > 0 ? textParts.join(' ') : msg.text();
+        addServerLog(`[BROWSER CONSOLE] ${text}`);
+      } catch (e) {
+        addServerLog(`[BROWSER CONSOLE] ${msg.text()}`);
+      }
     });
     activePage.on('pageerror', err => {
-      addServerLog(`[BROWSER ERROR] ${err.toString()}`);
+      addServerLog(`[BROWSER ERROR] ${err.stack || err.toString()}`);
     });
 
     // ===== CDP-LEVEL NETWORK INTERCEPTION (chặn cả Service Worker requests) =====
