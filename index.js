@@ -273,6 +273,17 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     activePage.on('requestfailed', request => {
       addServerLog(`❌ [REQUEST FAILED] ${request.url()} - ${request.failure()?.errorText || 'Unknown error'}`);
     });
+    activePage.on('response', response => {
+      try {
+        const url = response.url();
+        const status = response.status();
+        if (url.includes('staticmt.net') || url.includes('.bin') || url.includes('.png') || url.includes('.json') || url.includes('distributor') || url.includes('configs')) {
+          const length = response.headers()['content-length'] || 'unknown';
+          const cache = response.fromCache() ? ' (from cache)' : '';
+          addServerLog(`📥 [RESPONSE] ${url.substring(0, 90)}... - Status: ${status} - Size: ${length}${cache}`);
+        }
+      } catch (e) {}
+    });
 
     // ===== CDP-LEVEL NETWORK INTERCEPTION (chặn cả Service Worker requests) =====
     const cdpSession = await activePage.target().createCDPSession();
