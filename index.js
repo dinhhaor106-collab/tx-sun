@@ -214,7 +214,12 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       '--disable-dev-shm-usage',
       '--window-size=1280,720',
       '--disable-service-workers',
-      '--disable-features=ServiceWorker'
+      '--disable-features=ServiceWorker',
+      '--use-gl=angle',
+      '--use-angle=swiftshader',
+      '--ignore-gpu-blocklist',
+      '--disable-gpu-program-cache',
+      '--disable-gpu-shader-disk-cache'
     ];
 
     if (finalProxy) {
