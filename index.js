@@ -198,6 +198,10 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         finalProxy = resolved.proxy;
         if (resolved.username) finalProxyUser = resolved.username;
         if (resolved.password) finalProxyPass = resolved.password;
+        
+        // Chờ 10 giây để TinProxy đồng bộ IP của máy chủ
+        addServerLog("⏳ Chờ 10 giây để TinProxy đồng bộ IP của máy chủ...");
+        await new Promise(r => setTimeout(r, 10000));
       } else {
         addServerLog("❌ Lỗi lấy IP từ TinProxy API. Vui lòng kiểm tra lại Key hoặc đợi 2 phút.");
         throw new Error("Lỗi kết nối TinProxy");
