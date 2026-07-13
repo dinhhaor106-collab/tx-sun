@@ -220,7 +220,11 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       '--ignore-gpu-blocklist',
       '--disable-gpu-program-cache',
       '--disable-gpu-shader-disk-cache',
-      '--proxy-bypass-list=raw.githubusercontent.com,githubusercontent.com'
+      '--proxy-bypass-list=raw.githubusercontent.com,githubusercontent.com',
+      '--disable-renderer-backgrounding',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-ipc-flooding-protection'
     ];
 
     if (finalProxy) {
@@ -579,9 +583,12 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     addServerLog("⏳ Đang chờ sảnh game thật load sau khi click (tối đa 20s)...");
     await new Promise(r => setTimeout(r, 3000));
 
-    addServerLog("🔑 Đang tìm nút Đăng nhập trên Header (chờ tối đa 15s)...");
+    addServerLog("🔑 Đang tìm nút Đăng nhập trên Header (chờ tối đa 90s)...");
     let btnHeaderFound = false;
-    for (let attempt = 0; attempt < 15; attempt++) {
+    for (let attempt = 1; attempt <= 90; attempt++) {
+      if (attempt % 10 === 0) {
+        addServerLog(`⏳ Vẫn đang chờ sảnh game tải tài nguyên (giây thứ ${attempt}/90)...`);
+      }
       const headerClickResult = await activeFrame.evaluate(() => {
         try {
           const scene = cc.director.getScene();
@@ -654,7 +661,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     }
 
     if (!btnHeaderFound) {
-      addServerLog("⚠️ Không tìm thấy nút Đăng nhập trên Header sau 15s chờ đợi.");
+      addServerLog("⚠️ Không tìm thấy nút Đăng nhập trên Header sau 90s chờ đợi.");
       try {
         const pubDir = path.join(__dirname, 'public');
         if (!fs.existsSync(pubDir)) fs.mkdirSync(pubDir, { recursive: true });
