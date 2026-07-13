@@ -248,6 +248,15 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     // ===== CDP-LEVEL NETWORK INTERCEPTION (chặn cả Service Worker requests) =====
     const cdpSession = await activePage.target().createCDPSession();
     
+    // Bắt buộc Chromium bypass Service Worker ở tầng Network Protocol
+    try {
+      await cdpSession.send('Network.enable');
+      await cdpSession.send('Network.setBypassServiceWorker', { bypass: true });
+      addServerLog("🔧 [CDP] Đã kích hoạt bypass Service Worker thành công.");
+    } catch (e) {
+      addServerLog(`⚠️ [CDP] Cảnh báo không thể set bypass Service Worker: ${e.message}`);
+    }
+
     // Đọc config thật từ file local, gán thêm tracking_url: ""
     let localConfigObj = {};
     try {
@@ -286,14 +295,22 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       }
     });
 
-    // Giữ JS-level patch làm dự phòng + unregister SW cũ
+    // Giữ JS-level patch làm dự phòng + chặn đứng đăng ký SW
     await activePage.evaluateOnNewDocument((mockConfigStr) => {
       if ('serviceWorker' in navigator) {
-        const origRegister = navigator.serviceWorker.register.bind(navigator.serviceWorker);
+        // Hủy đăng ký tất cả SW đang hoạt động
+        navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
+        
+        // Mock register để chặn đứng hoàn toàn việc đăng ký SW mới
         navigator.serviceWorker.register = function(scriptURL, options) {
-          const p = origRegister(scriptURL, options);
-          navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister())).catch(() => {});
-          return p;
+          console.log('[BOT] Đã chặn đăng ký Service Worker cho script:', scriptURL);
+          return Promise.resolve({
+            scope: options?.scope || '',
+            unregister: () => Promise.resolve(true),
+            update: () => Promise.resolve(),
+            addEventListener: () => {},
+            removeEventListener: () => {}
+          });
         };
       }
       const origFetch = window.fetch;
