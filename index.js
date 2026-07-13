@@ -212,7 +212,6 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
-      '--disable-gpu',
       '--window-size=1280,720'
     ];
 
@@ -222,7 +221,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     }
 
     activeBrowser = await puppeteer.launch({
-      headless: "new",
+      headless: true,
       args: launchArgs
     });
     activePage = await activeBrowser.newPage();
@@ -247,22 +246,26 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     // Chặn request GitLab config (hay bị lỗi CORS/tunnel) và trả về mock để game không crash
     await activePage.setRequestInterception(true);
     activePage.on('request', (request) => {
-      const url = request.url();
-      // Mock GitLab config để tránh TypeError: Cannot read properties of null (reading 'tracking_url')
-      if (url.includes('gitlab.com') || url.includes('configs5533647')) {
-        request.respond({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            tracking_url: "",
-            ads_url: "",
-            version: "363",
-            status: 1,
-            msg: "ok"
-          })
-        });
-      } else {
-        request.continue();
+      try {
+        const url = request.url();
+        // Mock GitLab config để tránh TypeError: Cannot read properties of null (reading 'tracking_url')
+        if (url.includes('gitlab.com') || url.includes('configs5533647')) {
+          request.respond({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              tracking_url: "",
+              ads_url: "",
+              version: "363",
+              status: 1,
+              msg: "ok"
+            })
+          }).catch(() => {});
+        } else {
+          request.continue().catch(() => {});
+        }
+      } catch (e) {
+        // Tránh crash nếu request đã hoàn thành hoặc page đã đóng
       }
     });
 
