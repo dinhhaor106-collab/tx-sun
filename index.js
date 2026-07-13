@@ -250,17 +250,34 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         const url = request.url();
         // Mock GitLab config để tránh TypeError: Cannot read properties of null (reading 'tracking_url')
         if (url.includes('gitlab.com') || url.includes('configs5533647')) {
-          request.respond({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              tracking_url: "",
-              ads_url: "",
-              version: "363",
-              status: 1,
-              msg: "ok"
-            })
-          }).catch(() => {});
+          if (request.method() === 'OPTIONS') {
+            request.respond({
+              status: 200,
+              headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': '*',
+                'Access-Control-Allow-Methods': '*'
+              },
+              body: 'OK'
+            }).catch(() => {});
+          } else {
+            request.respond({
+              status: 200,
+              headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': '*',
+                'Access-Control-Allow-Methods': '*'
+              },
+              contentType: 'application/json',
+              body: JSON.stringify({
+                tracking_url: "",
+                ads_url: "",
+                version: "363",
+                status: 1,
+                msg: "ok"
+              })
+            }).catch(() => {});
+          }
         } else {
           request.continue().catch(() => {});
         }
