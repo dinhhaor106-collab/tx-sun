@@ -270,6 +270,9 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     activePage.on('pageerror', err => {
       addServerLog(`[BROWSER ERROR] ${err.stack || err.toString()}`);
     });
+    activePage.on('requestfailed', request => {
+      addServerLog(`❌ [REQUEST FAILED] ${request.url()} - ${request.failure()?.errorText || 'Unknown error'}`);
+    });
 
     // ===== CDP-LEVEL NETWORK INTERCEPTION (chặn cả Service Worker requests) =====
     const cdpSession = await activePage.target().createCDPSession();
