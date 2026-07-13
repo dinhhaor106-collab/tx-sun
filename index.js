@@ -372,6 +372,23 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         }
         return result;
       };
+      // Layer 5: Presave and Intercept localStorage for 'S_GAME_CONFIG'
+      try {
+        localStorage.setItem('S_GAME_CONFIG', mockConfigStr);
+      } catch(e) {}
+      
+      const origGetItem = Storage.prototype.getItem;
+      Storage.prototype.getItem = function(key) {
+        const val = origGetItem.apply(this, arguments);
+        if (key === 'S_GAME_CONFIG') {
+          if (!val || val === 'null' || val === 'undefined') {
+            console.log('[BOT] Intercepted localStorage.getItem for S_GAME_CONFIG returning null, supplying mock instead.');
+            return mockConfigStr;
+          }
+        }
+        return val;
+      };
+
       // Activate interception from page start until scene is fully loaded
       window.__botConfigInterceptActive = true;
 
@@ -473,27 +490,6 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       throw new Error("Không thể tải engine game. Vui lòng kiểm tra lại đường truyền.");
     }
     addServerLog(`🎮 Đã tìm thấy Engine Cocos tại Frame: "${activeFrame === activePage ? 'Trang chính' : activeFrame.url()}"`);
-
-    // === DIAGNOSTIC: Tải đoạn code newSession() từ game bundle để xem cơ chế fetch ===
-    try {
-      const gameCodeSnippet = await activeFrame.evaluate(async () => {
-        try {
-          const xhr = new XMLHttpRequest();
-          xhr.open('GET', 'https://web.sunwin.best/assets/main/index.1974b.js', false); // sync
-          xhr.setRequestHeader('Range', 'bytes=83100-84200');
-          xhr.send();
-          if (xhr.status === 206 || xhr.status === 200) {
-            return xhr.responseText.substring(0, 800);
-          }
-          return 'XHR status: ' + xhr.status;
-        } catch(e) {
-          return 'XHR error: ' + e.message;
-        }
-      });
-      addServerLog(`🔬 [GAME CODE] newSession ~83590: ${gameCodeSnippet}`);
-    } catch(e) {
-      addServerLog(`⚠️ Không tải được game code: ${e.message}`);
-    }
 
     // Bước trung gian: Click vào nút game trong landing page Cocos để vào sảnh thật
     addServerLog("🎯 Đang click vào biểu tượng game để vào sảnh chính...");
