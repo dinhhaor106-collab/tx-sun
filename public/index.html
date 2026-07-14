@@ -605,9 +605,11 @@
       btnReloadCaptcha.disabled = false;
     };
 
+    let _pollCount = 0;
     setInterval(async () => {
+      _pollCount++;
       try {
-        const res = await fetch('/api/bot/status');
+        const res = await fetch('/api/bot/status?_t=' + Date.now());
         const data = await res.json();
 
         // Quản lý hiển thị Captcha
@@ -629,8 +631,6 @@
           indicator.className = 'indicator running';
           statusText.textContent = "ĐANG CHẠY NGẦM 24/7";
           statusText.style.color = "var(--success-color)";
-          
-          // Khóa không cho sửa khi đang chạy
           usernameInput.disabled = true;
           passwordInput.disabled = true;
           baseBetInput.disabled = true;
@@ -641,7 +641,6 @@
           indicator.className = 'indicator stopped';
           statusText.textContent = "ĐANG DỪNG HOẠT ĐỘNG";
           statusText.style.color = "var(--danger-color)";
-          
           usernameInput.disabled = false;
           passwordInput.disabled = false;
           baseBetInput.disabled = false;
@@ -649,29 +648,35 @@
         }
 
         // 2. Cập nhật thống kê
-        statSession.textContent = data.state.currentSession ? "#" + data.state.currentSession : "---";
-        statTimer.textContent = data.state.timerVal !== null ? data.state.timerVal + "s" : "--s";
+        const st = data.state || {};
+        statSession.textContent = st.currentSession ? "#" + st.currentSession : "---";
+        statTimer.textContent = st.timerVal !== null && st.timerVal !== undefined ? st.timerVal + "s" : "--s";
         
-        const pred = data.state.prediction;
+        const pred = st.prediction;
         statPred.textContent = pred || "---";
         statPred.style.color = pred === 'Tài' ? 'var(--primary-color)' : (pred === 'Xỉu' ? 'var(--secondary-color)' : '#eab308');
 
-        statAmount.textContent = (data.state.amount || 0).toLocaleString() + "đ";
-        statStep.textContent = "Tay " + (data.state.stage || 1);
+        statAmount.textContent = (st.amount || 0).toLocaleString() + "đ";
+        statStep.textContent = "Tay " + (st.stage || 1);
         
-        const profit = data.state.profit || 0;
+        const profit = st.profit || 0;
         statProfit.textContent = (profit >= 0 ? "+" : "") + profit.toLocaleString() + "đ";
         statProfit.style.color = profit > 0 ? 'var(--success-color)' : (profit < 0 ? 'var(--danger-color)' : '#fff');
 
-        // 3. Cập nhật Logs
-        if (data.state.logs && data.state.logs.length > 0) {
-          logBox.innerHTML = data.state.logs.map(line => formatLogLine(line)).join('');
-          logBox.scrollTop = logBox.scrollHeight;
+        // 3. Cập nhật Logs - LUÔN CẬP NHẬT dù logs rỗng
+        const logs = st.logs || [];
+        if (logs.length > 0) {
+          logBox.innerHTML = logs.map(line => formatLogLine(line)).join('');
+        } else {
+          const ts = new Date().toLocaleTimeString();
+          logBox.innerHTML = `<div class="color-gray">[${ts}] [Hệ Thống] Đang kết nối... (Poll #${_pollCount}, running=${data.running})</div>`;
         }
+        logBox.scrollTop = logBox.scrollHeight;
+
       } catch (e) {
         console.error("Dashboard loop error:", e);
         if (logBox) {
-          logBox.innerHTML = `<div class="color-red">[Hệ Thống Lỗi Client] ${e.stack || e.message}</div>`;
+          logBox.innerHTML = `<div class="color-red">[Lỗi Dashboard] ${e.message}</div>`;
         }
       }
     }, 1500);
