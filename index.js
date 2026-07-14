@@ -1226,17 +1226,17 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
           return null;
         }
 
-        function predictEnsemble15D(x1, x2, x3, x4, x5) {
-          const w = [-5, -5, 2, -5, 0, 6, -1, -11, 3, -1, 2, 4, -3, -3, 12];
-          const terms = [
-            x1, x2, x3, x4, x5,
-            x1 * x2, x1 * x3, x1 * x4, x1 * x5,
-            x2 * x3, x2 * x4, x2 * x5,
-            x3 * x4, x3 * x5,
-            x4 * x5
-          ];
+        function predictEnsemble28D(x1, x2, x3, x4, x5, x6, x7) {
+          const base = [x1, x2, x3, x4, x5, x6, x7];
+          const terms = [...base];
+          for (let i = 0; i < base.length; i++) {
+            for (let j = i + 1; j < base.length; j++) {
+              terms.push(base[i] * base[j]);
+            }
+          }
+          const w = [6, 9, 12, -1, 11, -2, -12, -4, -1, 1, -10, -2, -13, -9, 4, -8, 0, -11, 9, 2, -5, 7, -12, 1, -8, -12, 8, 12];
           let score = 0;
-          for (let i = 0; i < 15; i++) {
+          for (let i = 0; i < 28; i++) {
             score += w[i] * terms[i];
           }
           return score >= 0 ? 'Tài' : 'Xỉu';
@@ -1323,7 +1323,16 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
                   const x3=snap20.tien_tai>snap20.tien_xiu?1:-1;
                   const x4=finalSnap30.nguoi_tai>finalSnap30.nguoi_xiu?1:-1;
                   const x5=(snap20.tien_tai-finalSnap30.tien_tai)>(snap20.tien_xiu-finalSnap30.tien_xiu)?1:-1;
-                  const pred=predictEnsemble15D(x1,x2,x3,x4,x5);
+                  
+                  const nguoi_tai_20 = snap20.nguoi_tai || 0;
+                  const nguoi_xiu_20 = snap20.nguoi_xiu || 0;
+                  const x6 = nguoi_tai_20 > nguoi_xiu_20 ? 1 : -1;
+
+                  const diff_users_tai = nguoi_tai_20 - finalSnap30.nguoi_tai;
+                  const diff_users_xiu = nguoi_xiu_20 - finalSnap30.nguoi_xiu;
+                  const x7 = diff_users_tai > diff_users_xiu ? 1 : -1;
+                  
+                  const pred=predictEnsemble28D(x1,x2,x3,x4,x5,x6,x7);
 
                   placed=true; lastPred=pred; lastAmt=curBet; activeSession=phien;
 
