@@ -1659,3 +1659,12 @@ app.listen(PORT, '0.0.0.0', () => {
   // Tự động khởi động lại bot nếu container vừa restart
   autoRestartBot();
 });
+
+// Chống crash Node.js khi có lỗi mạng từ Chromium hoặc Thư viện ngầm
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[⚠️ UNHANDLED REJECTION]:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[❌ UNCAUGHT EXCEPTION]:', err.stack || err.message);
+});
