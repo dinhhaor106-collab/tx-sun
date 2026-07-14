@@ -133,6 +133,33 @@ let botState = {
   logs: []
 };
 
+// ===== TỰ ĐỘNG PHỤC HỒI SAU KHI RAILWAY RESTART =====
+const BOT_CONFIG_PATH = process.env.DATA_PATH
+  ? process.env.DATA_PATH.replace('taixiu_data_history.json', 'bot_config.json')
+  : path.join(__dirname, 'bot_config.json');
+
+function saveBotConfig(cfg) {
+  try { fs.writeFileSync(BOT_CONFIG_PATH, JSON.stringify(cfg)); } catch(e) {}
+}
+
+function clearBotConfig() {
+  try { if (fs.existsSync(BOT_CONFIG_PATH)) fs.unlinkSync(BOT_CONFIG_PATH); } catch(e) {}
+}
+
+async function autoRestartBot() {
+  try {
+    if (!fs.existsSync(BOT_CONFIG_PATH)) return;
+    const cfg = JSON.parse(fs.readFileSync(BOT_CONFIG_PATH, 'utf8'));
+    if (!cfg || !cfg.username || !cfg.password) return;
+    console.log(`[🔄 AUTO-RESTART] Phát hiện cấu hình cũ, tự động khởi động lại bot cho tài khoản: "${cfg.username}"`);
+    await new Promise(r => setTimeout(r, 3000)); // chờ server sẵn sàng
+    startPuppeteerBot(cfg.username, cfg.password, cfg.baseBet || 1000, cfg.capital || 500000, cfg.proxyServer || '', cfg.proxyUser || '', cfg.proxyPass || '')
+      .catch(err => console.log(`[AUTO-RESTART LỖI] ${err.message}`));
+  } catch(e) {
+    console.log(`[AUTO-RESTART] Không đọc được cấu hình cũ: ${e.message}`);
+  }
+}
+
 function addServerLog(msg) {
   const time = new Date().toLocaleTimeString();
   const formatted = `[${time}] ${msg}`;
@@ -1321,6 +1348,8 @@ app.post('/api/bot/start', (req, res) => {
   }
 
   isStarting = true;
+  // Lưu cấu hình để auto-restart sau khi container khởi động lại
+  saveBotConfig({ username, password, baseBet, capital, proxyServer, proxyUser, proxyPass });
   // Chạy nền không chặn request trả về điện thoại
   startPuppeteerBot(username, password, baseBet, capital, proxyServer, proxyUser, proxyPass)
     .catch(err => {
@@ -1334,6 +1363,7 @@ app.post('/api/bot/start', (req, res) => {
 });
 
 app.post('/api/bot/stop', async (req, res) => {
+  clearBotConfig(); // Xóa cấu hình để không auto-restart sau khi dừng thủ công
   await stopPuppeteerBot();
   res.json({ status: 'success', message: 'Đã dừng bot.' });
 });
@@ -1517,4 +1547,6 @@ loadHistoryAndSync();
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[🌐] API Server đang chạy tại http://0.0.0.0:${PORT}`);
+  // Tự động khởi động lại bot nếu container vừa restart
+  autoRestartBot();
 });
