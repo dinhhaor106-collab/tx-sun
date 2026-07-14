@@ -1338,7 +1338,11 @@ app.post('/api/bot/stop', async (req, res) => {
 });
 
 app.get('/api/bot/status', (req, res) => {
-  res.json(botState);
+  res.json({
+    running: botState.running,
+    waitingCaptcha: botState.waitingCaptcha,
+    state: botState
+  });
 });
 
 app.post('/api/bot/submit-captcha', (req, res) => {
