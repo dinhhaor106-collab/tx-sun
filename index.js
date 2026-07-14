@@ -36,6 +36,8 @@ let consecLosses = 0;
 let currentPrediction = null;
 let prevSessionRecord = null;
 let lastTickTime = Date.now();
+let lastActiveConfig = null;
+let isRestarting = false;
 
 // Trọng số phi tuyến tính 28D siêu tối ưu v4.0
 function getEnsemblePrediction(curr, prev, losses) {
@@ -204,6 +206,32 @@ function addServerLog(msg) {
   if (botState.logs.length > 40) botState.logs.shift();
 }
 
+async function handleBotCrash() {
+  if (isRestarting) return;
+  isRestarting = true;
+  try {
+    addServerLog(`🔄 Đang dọn dẹp Chromium bị lỗi và tự động phục hồi...`);
+    await stopPuppeteerBot();
+    await new Promise(r => setTimeout(r, 8000)); // Chờ 8 giây giải phóng RAM
+    if (lastActiveConfig) {
+      addServerLog(`🚀 Tiến hành khởi chạy lại bot...`);
+      await startPuppeteerBot(
+        lastActiveConfig.username,
+        lastActiveConfig.password,
+        lastActiveConfig.baseBet,
+        lastActiveConfig.capital,
+        lastActiveConfig.proxyServer,
+        lastActiveConfig.proxyUser,
+        lastActiveConfig.proxyPass
+      );
+    }
+  } catch(e) {
+    addServerLog(`❌ Lỗi phục hồi bot: ${e.message}`);
+  } finally {
+    isRestarting = false;
+  }
+}
+
 async function resolveTinProxy(apiKey) {
   const get = (url) => new Promise((resolve) => {
     const https = require('https');
@@ -239,6 +267,8 @@ async function resolveTinProxy(apiKey) {
 }
 
 async function startPuppeteerBot(username, password, baseBet, capital, proxyServer, proxyUser, proxyPass) {
+  lastActiveConfig = { username, password, baseBet, capital, proxyServer, proxyUser, proxyPass };
+
   if (activeBrowser) {
     await stopPuppeteerBot();
   }
@@ -300,7 +330,21 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       headless: true,
       args: launchArgs
     });
+
+    activeBrowser.on('disconnected', () => {
+      if (botState.running && !isRestarting) {
+        addServerLog("⚠️ Trình duyệt ảo bị ngắt kết nối hoặc đóng bất ngờ. Đang khôi phục tự động...");
+        handleBotCrash();
+      }
+    });
+
     activePage = await activeBrowser.newPage();
+
+    activePage.on('error', err => {
+      addServerLog(`⚠️ [PAGE CRASHED/OOM] Trình duyệt bị sập hoặc hết RAM: ${err.message}. Đang khôi phục tự động...`);
+      handleBotCrash();
+    });
+
     await activePage.setViewport({ width: 1280, height: 720 });
 
     if (finalProxy && finalProxyUser && finalProxyPass) {
