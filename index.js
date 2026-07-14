@@ -1020,7 +1020,27 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       await new Promise(r => setTimeout(r, 1000));
     }
 
-    if (!txReady) throw new Error("Không phát hiện bảng Tài Xỉu, bot đã tự động dừng.");
+    if (!txReady) {
+      const sceneStructure = await activeFrame.evaluate(() => {
+        try {
+          const scene = cc.director.getScene();
+          const nodes = [];
+          const scan = (node, depth) => {
+            if (!node) return;
+            if (node.active) {
+              nodes.push("  ".repeat(depth) + node.name);
+            }
+            for (const child of (node.children || [])) {
+              scan(child, depth + 1);
+            }
+          };
+          scan(scene, 0);
+          return nodes.slice(0, 150).join('\n');
+        } catch(e) { return "Lỗi quét: " + e.message; }
+      });
+      addServerLog("🔍 [DEBUG SCENE STRUCTURE]:\n" + sceneStructure);
+      throw new Error("Không phát hiện bảng Tài Xỉu, bot đã tự động dừng.");
+    }
 
     addServerLog("🎲 Đã phát hiện bàn cược Tài Xỉu! Tiến hành tiêm mã cược v3.5...");
 
