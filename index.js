@@ -963,7 +963,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     // Tiêm mã cược vào trang game
     await activePage.evaluate((bBet, cap) => {
       window._syncLog = (msg) => {
-        fetch('/api/bot/log', {
+        fetch('http://localhost:8080/api/bot/log', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ message: msg })
@@ -971,7 +971,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       };
 
       window._syncState = (st) => {
-        fetch('/api/bot/update-state', {
+        fetch('http://localhost:8080/api/bot/update-state', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(st)
@@ -1194,7 +1194,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
                 }
                 snap30=null; snap20=null; placed=false; activeSession=null; moneyFlow.length=0;
 
-                fetch(`/api/sync-result`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(syncPayload)}).catch(()=>{});
+                fetch(`http://localhost:8080/api/sync-result`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(syncPayload)}).catch(()=>{});
               }
             }
 
