@@ -180,6 +180,13 @@ async function autoRestartBot() {
     if (!fs.existsSync(BOT_CONFIG_PATH)) return;
     const cfg = JSON.parse(fs.readFileSync(BOT_CONFIG_PATH, 'utf8'));
     if (!cfg || !cfg.username || !cfg.password) return;
+    
+    // Tự động chuyển đổi sang Proxy API Key mới nếu phát hiện key cũ
+    if (cfg.proxyServer === 'uYgNEoVcjzsCBzznJdw8HzVZr5FCnIvm') {
+      cfg.proxyServer = 'tJQmIDJXpAvfVWs0JSkTD1Drhfi5jULd';
+      saveBotConfig(cfg); // lưu đè lại cấu hình mới
+    }
+    
     console.log(`[🔄 AUTO-RESTART] Phát hiện cấu hình cũ, tự động khởi động lại bot cho tài khoản: "${cfg.username}"`);
     await new Promise(r => setTimeout(r, 3000)); // chờ server sẵn sàng
     startPuppeteerBot(cfg.username, cfg.password, cfg.baseBet || 1000, cfg.capital || 500000, cfg.proxyServer || '', cfg.proxyUser || '', cfg.proxyPass || '')

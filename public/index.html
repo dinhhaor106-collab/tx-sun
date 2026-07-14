@@ -465,7 +465,14 @@
     // Khôi phục cấu hình từ localStorage
     usernameInput.value = localStorage.getItem('sun_username') || '';
     passwordInput.value = localStorage.getItem('sun_password') || '';
-    proxyServerInput.value = localStorage.getItem('sun_proxyServer') || '';
+    
+    let storedProxy = localStorage.getItem('sun_proxyServer') || '';
+    if (storedProxy === 'uYgNEoVcjzsCBzznJdw8HzVZr5FCnIvm' || !storedProxy) {
+      storedProxy = 'tJQmIDJXpAvfVWs0JSkTD1Drhfi5jULd';
+      localStorage.setItem('sun_proxyServer', storedProxy);
+    }
+    proxyServerInput.value = storedProxy;
+    
     proxyUserInput.value = localStorage.getItem('sun_proxyUser') || '';
     proxyPassInput.value = localStorage.getItem('sun_proxyPass') || '';
 
