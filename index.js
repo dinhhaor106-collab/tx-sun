@@ -1089,9 +1089,9 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
     addServerLog("🎲 Đã phát hiện bàn cược Tài Xỉu! Tiến hành tiêm mã cược v3.5...");
 
     // Tiêm mã cược vào trang game
-    await activePage.evaluate((bBet, cap) => {
+    await activePage.evaluate((bBet, cap, serverPort) => {
       window._syncLog = (msg) => {
-        fetch('http://localhost:8080/api/bot/log', {
+        fetch(`http://localhost:${serverPort}/api/bot/log`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ message: msg })
@@ -1099,7 +1099,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       };
 
       window._syncState = (st) => {
-        fetch('http://localhost:8080/api/bot/update-state', {
+        fetch(`http://localhost:${serverPort}/api/bot/update-state`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(st)
@@ -1322,7 +1322,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
                 }
                 snap30=null; snap20=null; placed=false; activeSession=null; moneyFlow.length=0;
 
-                fetch(`http://localhost:8080/api/sync-result`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(syncPayload)}).catch(()=>{});
+                fetch(`http://localhost:${serverPort}/api/sync-result`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(syncPayload)}).catch(()=>{});
               }
             }
 
@@ -1410,7 +1410,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         setInterval(() => { if (!txMain || !txMain.isValid) initComponent(); }, 5000);
         window._syncLog("⚡ Hệ thống cược tự động v3.5 READY!");
       })();
-    }, baseBet, capital);
+    }, baseBet, capital, PORT);
 
     addServerLog("✅ Đã tiêm mã bot thành công! Đang chạy cược...");
   } catch(e) {
