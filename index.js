@@ -1038,7 +1038,10 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
           }
         };
 
-        const btnTaiXiu = findNodeByName(scene, "taixiu");
+        const btnTaiXiu = findNodeByName(scene, "ico_taixiu") || 
+                          findNodeByName(scene, "taixiu") || 
+                          findNodeByName(scene, "ico_tx") || 
+                          findNodeByName(scene, "btn_taixiu");
         if (btnTaiXiu) forceClickCocosNode(btnTaiXiu);
       } catch(e) {}
     });
