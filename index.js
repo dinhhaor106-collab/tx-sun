@@ -37,27 +37,49 @@ let currentPrediction = null;
 let prevSessionRecord = null;
 let lastTickTime = Date.now();
 
-// Trọng số phi tuyến tính 15D tối ưu của v3.5
+// Trọng số phi tuyến tính 28D siêu tối ưu v4.0
 function getEnsemblePrediction(curr, prev, losses) {
   const x1 = prev && prev.ket_qua ? (prev.ket_qua === 'Tài' ? 1 : -1) : 1;
-  const x2 = curr.snap_30 && curr.snap_30.tien_tai > curr.snap_30.tien_xiu ? 1 : -1;
-  const x3 = curr.snap_20 && curr.snap_20.tien_tai > curr.snap_20.tien_xiu ? 1 : -1;
-  const x4 = curr.snap_30 && curr.snap_30.nguoi_tai > curr.snap_30.nguoi_xiu ? 1 : -1;
-  const diff_tai = curr.snap_30 && curr.snap_20 ? (curr.snap_20.tien_tai - curr.snap_30.tien_tai) : 0;
-  const diff_xiu = curr.snap_30 && curr.snap_20 ? (curr.snap_20.tien_xiu - curr.snap_30.tien_xiu) : 0;
+  
+  const snap_30 = curr.snap_30 || {};
+  const snap_20 = curr.snap_20 || {};
+
+  const tien_tai_30 = snap_30.tien_tai || 0;
+  const tien_xiu_30 = snap_30.tien_xiu || 0;
+  const x2 = tien_tai_30 > tien_xiu_30 ? 1 : -1;
+
+  const tien_tai_20 = snap_20.tien_tai || 0;
+  const tien_xiu_20 = snap_20.tien_xiu || 0;
+  const x3 = tien_tai_20 > tien_xiu_20 ? 1 : -1;
+
+  const nguoi_tai_30 = snap_30.nguoi_tai || 0;
+  const nguoi_xiu_30 = snap_30.nguoi_xiu || 0;
+  const x4 = nguoi_tai_30 > nguoi_xiu_30 ? 1 : -1;
+
+  const diff_tai = tien_tai_20 - tien_tai_30;
+  const diff_xiu = tien_xiu_20 - tien_xiu_30;
   const x5 = diff_tai > diff_xiu ? 1 : -1;
 
-  const w = [-5, -5, 2, -5, 0, 6, -1, -11, 3, -1, 2, 4, -3, -3, 12];
-  const terms = [
-    x1, x2, x3, x4, x5,
-    x1 * x2, x1 * x3, x1 * x4, x1 * x5,
-    x2 * x3, x2 * x4, x2 * x5,
-    x3 * x4, x3 * x5,
-    x4 * x5
-  ];
+  const nguoi_tai_20 = snap_20.nguoi_tai || 0;
+  const nguoi_xiu_20 = snap_20.nguoi_xiu || 0;
+  const x6 = nguoi_tai_20 > nguoi_xiu_20 ? 1 : -1;
+
+  const diff_users_tai = nguoi_tai_20 - nguoi_tai_30;
+  const diff_users_xiu = nguoi_xiu_20 - nguoi_xiu_30;
+  const x7 = diff_users_tai > diff_users_xiu ? 1 : -1;
+
+  const base = [x1, x2, x3, x4, x5, x6, x7];
+  const terms = [...base];
+  for (let i = 0; i < base.length; i++) {
+    for (let j = i + 1; j < base.length; j++) {
+      terms.push(base[i] * base[j]);
+    }
+  }
+
+  const w = [6, 9, 12, -1, 11, -2, -12, -4, -1, 1, -10, -2, -13, -9, 4, -8, 0, -11, 9, 2, -5, 7, -12, 1, -8, -12, 8, 12];
 
   let score = 0;
-  for (let i = 0; i < 15; i++) {
+  for (let i = 0; i < 28; i++) {
     score += w[i] * terms[i];
   }
   return score >= 0 ? 'Tài' : 'Xỉu';
