@@ -220,7 +220,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
       '--ignore-gpu-blocklist',
       '--disable-gpu-program-cache',
       '--disable-gpu-shader-disk-cache',
-      '--proxy-bypass-list=raw.githubusercontent.com,githubusercontent.com',
+      '--proxy-bypass-list=raw.githubusercontent.com,githubusercontent.com,localhost,127.0.0.1',
       '--disable-renderer-backgrounding',
       '--disable-background-timer-throttling',
       '--disable-backgrounding-occluded-windows',
