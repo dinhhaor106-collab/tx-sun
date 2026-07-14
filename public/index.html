@@ -668,7 +668,12 @@
           logBox.innerHTML = data.state.logs.map(line => formatLogLine(line)).join('');
           logBox.scrollTop = logBox.scrollHeight;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error("Dashboard loop error:", e);
+        if (logBox) {
+          logBox.innerHTML = `<div class="color-red">[Hệ Thống Lỗi Client] ${e.stack || e.message}</div>`;
+        }
+      }
     }, 1500);
   </script>
 
