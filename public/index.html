@@ -613,7 +613,7 @@
     };
 
     let _pollCount = 0;
-    setInterval(async () => {
+    async function checkStatus() {
       _pollCount++;
       try {
         const res = await fetch('/api/bot/status?_t=' + Date.now());
@@ -686,7 +686,12 @@
           logBox.innerHTML = `<div class="color-red">[Lỗi Dashboard] ${e.message}</div>`;
         }
       }
-    }, 1500);
+    }
+
+    // Chạy đồng bộ ngay lập tức khi load trang
+    checkStatus();
+    // Sau đó chạy tuần hoàn mỗi 1.5s
+    setInterval(checkStatus, 1500);
   </script>
 
   <!-- Modal Nhập Captcha -->
