@@ -1435,6 +1435,13 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
 async function stopPuppeteerBot() {
   botState.running = false;
   addServerLog("🛑 Đang dừng trình duyệt ẩn...");
+  
+  if (captchaRejecter) {
+    try { captchaRejecter(new Error("Bot stopped by user")); } catch(e) {}
+    captchaRejecter = null;
+    captchaResolver = null;
+  }
+
   if (activeBrowser) {
     try {
       // Đóng trình duyệt ảo với timeout 3s để tránh bị treo cứng luồng do tiến trình zombie
