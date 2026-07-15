@@ -375,8 +375,18 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         }
         const text = textParts.length > 0 ? textParts.join(' ') : msg.text();
         addServerLog(`[BROWSER CONSOLE] ${text}`);
+
+        if (text.includes('loseContext') || text.includes('context lost') || text.includes('CONTEXT_LOST_WEBGL')) {
+          addServerLog("⚠️ [WEBGL CRASH] Phát hiện lỗi sập luồng đồ họa WebGL trong game. Tiến hành hồi sinh bot...");
+          handleBotCrash();
+        }
       } catch (e) {
-        addServerLog(`[BROWSER CONSOLE] ${msg.text()}`);
+        const text = msg.text();
+        addServerLog(`[BROWSER CONSOLE] ${text}`);
+        if (text.includes('loseContext') || text.includes('context lost') || text.includes('CONTEXT_LOST_WEBGL')) {
+          addServerLog("⚠️ [WEBGL CRASH] Phát hiện lỗi sập luồng đồ họa WebGL trong game. Tiến hành hồi sinh bot...");
+          handleBotCrash();
+        }
       }
     });
     activePage.on('pageerror', err => {
