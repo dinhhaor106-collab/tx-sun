@@ -692,22 +692,33 @@ async function checkProxyWorking(proxyStr) {
 async function getFreeVNProxy() {
   const get = (url) => new Promise((resolve) => {
     const https = require('https');
-    https.get(url, (res) => {
+    const http = require('http');
+    const lib = url.startsWith('https') ? https : http;
+    lib.get(url, (res) => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => resolve(data));
     }).on('error', () => resolve(''));
   });
 
-  try {
-    const rawData = await get('https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=VN&ssl=all&anonymity=all');
-    const lines = rawData.trim().split(/\r?\n/).filter(line => line.includes(':'));
-    for (const p of lines.slice(0, 10)) {
-      const proxy = p.trim();
-      const ok = await checkProxyWorking(proxy);
-      if (ok) return proxy;
-    }
-  } catch(e) {}
+  const sources = [
+    'https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=VN&ssl=all&anonymity=all',
+    'https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt',
+    'https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt',
+    'https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt'
+  ];
+
+  for (const src of sources) {
+    try {
+      const rawData = await get(src);
+      const lines = rawData.trim().split(/\r?\n/).filter(line => line.includes(':'));
+      for (const p of lines.slice(0, 15)) {
+        const proxy = p.trim();
+        const ok = await checkProxyWorking(proxy);
+        if (ok) return proxy;
+      }
+    } catch(e) {}
+  }
   return null;
 }
 
