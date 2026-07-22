@@ -116,33 +116,77 @@ async function pollTelegramUpdates() {
 async function handleTelegramCommand(msg) {
   const chatId = String(msg.chat.id);
   const text = msg.text.trim();
-  const cmd = text.split(' ')[0].split('@')[0].toLowerCase();
+  const parts = text.split(/\s+/);
+  const cmd = parts[0].split('@')[0].toLowerCase();
 
-  if (cmd === '/startbot') {
+  // Xử lý gửi mã Captcha trực tiếp từ Telegram nếu bot đang chờ Captcha
+  if (botState.waitingCaptcha && captchaResolver && !cmd.startsWith('/')) {
+    const code = text.trim();
+    captchaResolver(code);
+    sendTelegramMessage(`📥 Đã nhận mã Captcha: <b>${code}</b>. Đang gửi xác thực...`, chatId);
+    return;
+  }
+
+  if (cmd === '/startbot' || cmd === '/config' || cmd === '/login') {
     if (botState.running || isStarting) {
       sendTelegramMessage(`⚠️ Bot đang trong trạng thái chạy hoặc đang khởi động!`, chatId);
-    } else {
-      let cfgToRun = lastActiveConfig;
-      if (!cfgToRun && fs.existsSync(BOT_CONFIG_PATH)) {
-        try {
-          cfgToRun = JSON.parse(fs.readFileSync(BOT_CONFIG_PATH, 'utf8'));
-        } catch(e) {}
-      }
+      return;
+    }
 
-      if (cfgToRun && cfgToRun.username && cfgToRun.password) {
-        sendTelegramMessage(`🚀 Nhận lệnh Telegram! Đang khởi động bot cho tài khoản "${cfgToRun.username}"...`, chatId);
-        startPuppeteerBot(
-          cfgToRun.username,
-          cfgToRun.password,
-          cfgToRun.baseBet || 1000,
-          cfgToRun.capital || 500000,
-          cfgToRun.proxyServer || '',
-          cfgToRun.proxyUser || '',
-          cfgToRun.proxyPass || ''
-        ).catch(err => sendTelegramMessage(`❌ Lỗi khởi động: ${err.message}`, chatId));
-      } else {
-        sendTelegramMessage(`⚠️ Chưa có cấu hình tài khoản! Vui lòng bấm Khởi chạy lần đầu trên Web Dashboard.`, chatId);
-      }
+    // Nếu người dùng truyền tài khoản và mật khẩu trực tiếp: /startbot [user] [pass] [baseBet] [capital]
+    if (parts.length >= 3) {
+      const username = parts[1];
+      const password = parts[2];
+      const baseBet = parseFloat(parts[3]) || 1000;
+      const capital = parseFloat(parts[4]) || 500000;
+      const proxyServer = parts[5] || 'tJQmIDJXpAvfVWs0JSkTD1Drhfi5jULd';
+
+      saveBotConfig({ username, password, baseBet, capital, proxyServer, proxyUser: '', proxyPass: '', telegramToken, telegramChatId });
+      
+      sendTelegramMessage(`🚀 Nhận thông tin đăng nhập từ Telegram! Đang khởi động bot cho tài khoản "<b>${username}</b>"...`, chatId);
+      startPuppeteerBot(username, password, baseBet, capital, proxyServer, '', '')
+        .catch(err => sendTelegramMessage(`❌ Lỗi khởi động: ${err.message}`, chatId));
+      return;
+    }
+
+    // Nếu không truyền tài khoản, đọc từ bộ nhớ hoặc đĩa
+    let cfgToRun = lastActiveConfig;
+    if (!cfgToRun && fs.existsSync(BOT_CONFIG_PATH)) {
+      try {
+        cfgToRun = JSON.parse(fs.readFileSync(BOT_CONFIG_PATH, 'utf8'));
+      } catch(e) {}
+    }
+
+    if (cfgToRun && cfgToRun.username && cfgToRun.password) {
+      sendTelegramMessage(`🚀 Đang khởi động bot cho tài khoản đã lưu "<b>${cfgToRun.username}</b>"...`, chatId);
+      startPuppeteerBot(
+        cfgToRun.username,
+        cfgToRun.password,
+        cfgToRun.baseBet || 1000,
+        cfgToRun.capital || 500000,
+        cfgToRun.proxyServer || '',
+        cfgToRun.proxyUser || '',
+        cfgToRun.proxyPass || ''
+      ).catch(err => sendTelegramMessage(`❌ Lỗi khởi động: ${err.message}`, chatId));
+    } else {
+      sendTelegramMessage(
+        `<b>⚠️ CHƯA CÓ CẤU HÌNH TÀI KHOẢN!</b>\n\n` +
+        `👉 Bạn có thể nhập tài khoản trực tiếp trên Telegram theo cú pháp:\n` +
+        `<code>/startbot [Tài_Khoản] [Mật_Khẩu] [Cược_Gốc] [Vốn]</code>\n\n` +
+        `<b>Ví dụ:</b>\n` +
+        `<code>/startbot nguyennhan111 mypass123 10 500000</code>`,
+        chatId
+      );
+    }
+  } else if (cmd === '/captcha' || cmd === '/c') {
+    if (!botState.waitingCaptcha || !captchaResolver) {
+      sendTelegramMessage(`ℹ️ Hiện tại game không yêu cầu mã Captcha nào.`, chatId);
+    } else if (parts.length >= 2) {
+      const code = parts[1];
+      captchaResolver(code);
+      sendTelegramMessage(`📥 Đã nhận mã Captcha: <b>${code}</b>. Đang gửi xác thực...`, chatId);
+    } else {
+      sendTelegramMessage(`⚠️ Vui lòng nhập mã Captcha theo cú pháp: <code>/c [Mã_Captcha]</code>`, chatId);
     }
   } else if (cmd === '/stopbot') {
     if (!botState.running) {
@@ -199,10 +243,11 @@ async function handleTelegramCommand(msg) {
   } else if (cmd === '/start' || cmd === '/help') {
     const reply = `<b>🤖 BOT DỰ ĐOÁN TÀI XỈU SUNWIN (28D)</b>\n\n` +
       `<b>Danh sách lệnh hỗ trợ:</b>\n` +
-      `🔹 /status - Xem trạng thái bot, phiên cược & lợi nhuận\n` +
-      `🔹 /startbot - Khởi chạy bot cược ngầm 24/7\n` +
+      `🔹 <code>/startbot [User] [Pass] [Cược] [Vốn]</code> - Bật bot (Nhập trực tiếp nick hoặc chạy nick đã lưu)\n` +
       `🔹 /stopbot - Dừng hoạt động bot cược\n` +
+      `🔹 /status - Xem trạng thái bot, phiên cược & lợi nhuận\n` +
       `🔹 /history - Xem lịch sử 5 phiên gần nhất\n` +
+      `🔹 <code>/c [Mã_Captcha]</code> - Gửi mã Captcha khi game yêu cầu\n` +
       `🔹 /help - Hiển thị hướng dẫn này`;
     sendTelegramMessage(reply, chatId);
   }
