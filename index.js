@@ -490,6 +490,26 @@ async function resolveTinProxy(apiKey) {
   return null;
 }
 
+async function getFreeVNProxy() {
+  const get = (url) => new Promise((resolve) => {
+    const https = require('https');
+    https.get(url, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(data));
+    }).on('error', () => resolve(''));
+  });
+
+  try {
+    const rawData = await get('https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=VN&ssl=all&anonymity=all');
+    const lines = rawData.trim().split(/\r?\n/).filter(line => line.includes(':'));
+    if (lines.length > 0) {
+      return lines[0].trim();
+    }
+  } catch(e) {}
+  return null;
+}
+
 async function startPuppeteerBot(username, password, baseBet, capital, proxyServer, proxyUser, proxyPass) {
   lastActiveConfig = { username, password, baseBet, capital, proxyServer, proxyUser, proxyPass };
 
@@ -520,10 +540,19 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         addServerLog("⏳ Chờ 10 giây để TinProxy đồng bộ IP của máy chủ...");
         await new Promise(r => setTimeout(r, 10000));
       } else {
-        addServerLog("⚠️ Proxy TinProxy hết hạn/lỗi kết nối. Tự động chuyển sang kết nối trực tiếp (Không dùng Proxy)...");
-        finalProxy = "";
-        finalProxyUser = "";
-        finalProxyPass = "";
+        addServerLog("⚠️ Proxy TinProxy hết hạn. Đang tìm Proxy Việt Nam miễn phí dự phòng...");
+        const freeVN = await getFreeVNProxy();
+        if (freeVN) {
+          addServerLog(`✅ Đã tìm thấy Proxy VN miễn phí: "${freeVN}"`);
+          finalProxy = freeVN;
+          finalProxyUser = "";
+          finalProxyPass = "";
+        } else {
+          addServerLog("⚠️ Không tìm thấy Proxy VN miễn phí, thử kết nối trực tiếp...");
+          finalProxy = "";
+          finalProxyUser = "";
+          finalProxyPass = "";
+        }
       }
     }
 
