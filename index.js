@@ -668,6 +668,27 @@ async function resolveTinProxy(apiKey) {
   return null;
 }
 
+async function checkProxyWorking(proxyStr) {
+  return new Promise((resolve) => {
+    const http = require('http');
+    const [host, port] = proxyStr.split(':');
+    const req = http.request({
+      host,
+      port: parseInt(port),
+      path: 'http://web.sunwin.best/',
+      method: 'CONNECT',
+      timeout: 4000
+    });
+    req.on('connect', (res, socket) => {
+      socket.destroy();
+      resolve(true);
+    });
+    req.on('error', () => resolve(false));
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.end();
+  });
+}
+
 async function getFreeVNProxy() {
   const get = (url) => new Promise((resolve) => {
     const https = require('https');
@@ -681,8 +702,10 @@ async function getFreeVNProxy() {
   try {
     const rawData = await get('https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=5000&country=VN&ssl=all&anonymity=all');
     const lines = rawData.trim().split(/\r?\n/).filter(line => line.includes(':'));
-    if (lines.length > 0) {
-      return lines[0].trim();
+    for (const p of lines.slice(0, 10)) {
+      const proxy = p.trim();
+      const ok = await checkProxyWorking(proxy);
+      if (ok) return proxy;
     }
   } catch(e) {}
   return null;
@@ -718,15 +741,15 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
         addServerLog("⏳ Chờ 10 giây để TinProxy đồng bộ IP của máy chủ...");
         await new Promise(r => setTimeout(r, 10000));
       } else {
-        addServerLog("⚠️ Proxy TinProxy hết hạn. Đang tìm Proxy Việt Nam miễn phí dự phòng...");
+        addServerLog("⚠️ Proxy TinProxy hết hạn. Đang quét danh sách Proxy Việt Nam miễn phí sống...");
         const freeVN = await getFreeVNProxy();
         if (freeVN) {
-          addServerLog(`✅ Đã tìm thấy Proxy VN miễn phí: "${freeVN}"`);
+          addServerLog(`✅ Đã chọn Proxy VN sống: "${freeVN}"`);
           finalProxy = freeVN;
           finalProxyUser = "";
           finalProxyPass = "";
         } else {
-          addServerLog("⚠️ Không tìm thấy Proxy VN miễn phí, thử kết nối trực tiếp...");
+          addServerLog("⚠️ Không tìm thấy Proxy VN miễn phí hoạt động. Tự động kết nối trực tiếp (Direct Connection)...");
           finalProxy = "";
           finalProxyUser = "";
           finalProxyPass = "";
