@@ -193,7 +193,8 @@ async function handleTelegramCommand(msg) {
       sendTelegramMessage(`ℹ️ Bot hiện tại đang dừng sẵn rồi.`, chatId);
     } else {
       sendTelegramMessage(`🛑 Nhận lệnh Telegram! Đang tiến hành tắt bot...`, chatId);
-      stopPuppeteerBot();
+      await stopPuppeteerBot();
+      sendTelegramMessage(`✅ <b>[ĐÃ TẮT BOT THÀNH CÔNG]</b>\nTrình duyệt ngầm đã được đóng hoàn toàn. Bot đã dừng toàn bộ hoạt động cược.`, chatId);
     }
   } else if (cmd === '/status') {
     const runningStr = botState.running ? "🟢 ĐANG CHẠY NGẦM 24/7" : "🔴 ĐANG DỪNG HOẠT ĐỘNG";
@@ -1982,6 +1983,7 @@ async function stopPuppeteerBot() {
   botState.timerVal = null;
   botState.prediction = "---";
   addServerLog("✅ Đã tắt trình duyệt chạy ngầm.");
+  sendTelegramMessage("✅ <b>[ĐÃ TẮT BOT THÀNH CÔNG]</b>\nTrình duyệt ngầm đã được đóng hoàn toàn. Bot đã dừng toàn bộ hoạt động cược.");
 }
 
 // ===== HTTP ENDPOINTS ĐIỀU KHIỂN BOT DI ĐỘNG =====
