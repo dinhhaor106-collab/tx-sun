@@ -116,17 +116,42 @@ async function pollTelegramUpdates() {
 async function handleTelegramCommand(msg) {
   const chatId = String(msg.chat.id);
   const text = msg.text.trim();
+  const cmd = text.split(' ')[0].split('@')[0].toLowerCase();
 
-  if (text.startsWith('/start') || text.startsWith('/help')) {
-    const reply = `<b>🤖 BOT DỰ ĐOÁN TÀI XỈU SUNWIN (28D)</b>\n\n` +
-      `<b>Danh sách lệnh hỗ trợ:</b>\n` +
-      `🔹 /status - Xem trạng thái bot, phiên cược & lợi nhuận\n` +
-      `🔹 /startbot - Khởi chạy bot cược ngầm 24/7\n` +
-      `🔹 /stopbot - Dừng hoạt động bot cược\n` +
-      `🔹 /history - Xem lịch sử 5 phiên gần nhất\n` +
-      `🔹 /help - Hiển thị hướng dẫn này`;
-    sendTelegramMessage(reply, chatId);
-  } else if (text.startsWith('/status')) {
+  if (cmd === '/startbot') {
+    if (botState.running || isStarting) {
+      sendTelegramMessage(`⚠️ Bot đang trong trạng thái chạy hoặc đang khởi động!`, chatId);
+    } else {
+      let cfgToRun = lastActiveConfig;
+      if (!cfgToRun && fs.existsSync(BOT_CONFIG_PATH)) {
+        try {
+          cfgToRun = JSON.parse(fs.readFileSync(BOT_CONFIG_PATH, 'utf8'));
+        } catch(e) {}
+      }
+
+      if (cfgToRun && cfgToRun.username && cfgToRun.password) {
+        sendTelegramMessage(`🚀 Nhận lệnh Telegram! Đang khởi động bot cho tài khoản "${cfgToRun.username}"...`, chatId);
+        startPuppeteerBot(
+          cfgToRun.username,
+          cfgToRun.password,
+          cfgToRun.baseBet || 1000,
+          cfgToRun.capital || 500000,
+          cfgToRun.proxyServer || '',
+          cfgToRun.proxyUser || '',
+          cfgToRun.proxyPass || ''
+        ).catch(err => sendTelegramMessage(`❌ Lỗi khởi động: ${err.message}`, chatId));
+      } else {
+        sendTelegramMessage(`⚠️ Chưa có cấu hình tài khoản! Vui lòng bấm Khởi chạy lần đầu trên Web Dashboard.`, chatId);
+      }
+    }
+  } else if (cmd === '/stopbot') {
+    if (!botState.running) {
+      sendTelegramMessage(`ℹ️ Bot hiện tại đang dừng sẵn rồi.`, chatId);
+    } else {
+      sendTelegramMessage(`🛑 Nhận lệnh Telegram! Đang tiến hành tắt bot...`, chatId);
+      stopPuppeteerBot();
+    }
+  } else if (cmd === '/status') {
     const runningStr = botState.running ? "🟢 ĐANG CHẠY NGẦM 24/7" : "🔴 ĐANG DỪNG HOẠT ĐỘNG";
     const sessionStr = botState.currentSession ? `#${botState.currentSession}` : "Chờ dữ liệu...";
     const timerStr = botState.timerVal !== null ? `${botState.timerVal}s` : "--s";
@@ -143,33 +168,7 @@ async function handleTelegramCommand(msg) {
       `• Mức cược: <b>${amountStr}</b> (${stageStr})\n` +
       `• Tổng lợi nhuận: <b>${profitStr}</b>`;
     sendTelegramMessage(reply, chatId);
-  } else if (text.startsWith('/startbot')) {
-    if (botState.running || isStarting) {
-      sendTelegramMessage(`⚠️ Bot đang trong trạng thái chạy hoặc đang khởi động!`, chatId);
-    } else {
-      if (lastActiveConfig) {
-        sendTelegramMessage(`🚀 Nhận lệnh Telegram! Đang khởi động bot cho tài khoản "${lastActiveConfig.username}"...`, chatId);
-        startPuppeteerBot(
-          lastActiveConfig.username,
-          lastActiveConfig.password,
-          lastActiveConfig.baseBet,
-          lastActiveConfig.capital,
-          lastActiveConfig.proxyServer,
-          lastActiveConfig.proxyUser,
-          lastActiveConfig.proxyPass
-        ).catch(err => sendTelegramMessage(`❌ Lỗi khởi động: ${err.message}`, chatId));
-      } else {
-        sendTelegramMessage(`⚠️ Chưa có cấu hình tài khoản! Vui lòng bấm Khởi chạy lần đầu trên Web Dashboard.`, chatId);
-      }
-    }
-  } else if (text.startsWith('/stopbot')) {
-    if (!botState.running) {
-      sendTelegramMessage(`ℹ️ Bot hiện tại đang dừng sẵn rồi.`, chatId);
-    } else {
-      sendTelegramMessage(`🛑 Nhận lệnh Telegram! Đang tiến hành tắt bot...`, chatId);
-      stopPuppeteerBot();
-    }
-  } else if (text.startsWith('/history')) {
+  } else if (cmd === '/history') {
     const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
     if (!fs.existsSync(filePath)) {
       sendTelegramMessage(`ℹ️ Chưa có dữ liệu lịch sử phiên nào.`, chatId);
@@ -197,6 +196,15 @@ async function handleTelegramCommand(msg) {
     } catch(e) {
       sendTelegramMessage(`❌ Lỗi đọc lịch sử: ${e.message}`, chatId);
     }
+  } else if (cmd === '/start' || cmd === '/help') {
+    const reply = `<b>🤖 BOT DỰ ĐOÁN TÀI XỈU SUNWIN (28D)</b>\n\n` +
+      `<b>Danh sách lệnh hỗ trợ:</b>\n` +
+      `🔹 /status - Xem trạng thái bot, phiên cược & lợi nhuận\n` +
+      `🔹 /startbot - Khởi chạy bot cược ngầm 24/7\n` +
+      `🔹 /stopbot - Dừng hoạt động bot cược\n` +
+      `🔹 /history - Xem lịch sử 5 phiên gần nhất\n` +
+      `🔹 /help - Hiển thị hướng dẫn này`;
+    sendTelegramMessage(reply, chatId);
   }
 }
 
