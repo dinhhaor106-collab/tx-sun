@@ -1673,16 +1673,22 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
 
         function getHistoryArray() {
           if (!txMain) return [];
-          const all = [...(Array.isArray(txMain._results)?txMain._results:[]), ...((txMain.taiXiuSessionHistoryView&&Array.isArray(txMain.taiXiuSessionHistoryView._result))?txMain.taiXiuSessionHistoryView._result:[])];
-          const list = [];
-          for (const item of all) {
-            if (!item) continue;
-            const d1=parseInt(item.d1||0), d2=parseInt(item.d2||0), d3=parseInt(item.d3||0), sum=d1+d2+d3;
-            if (d1>=1&&d1<=6&&d2>=1&&d2<=6&&d3>=1&&d3<=6) {
-              list.push(sum>=11?'T':'X');
+          const resultsArray = Array.isArray(txMain._results) ? txMain._results : [];
+          const historyViewArray = (txMain.taiXiuSessionHistoryView && Array.isArray(txMain.taiXiuSessionHistoryView._result)) ? txMain.taiXiuSessionHistoryView._result : [];
+          
+          const map = new Map();
+          for (const x of [...resultsArray, ...historyViewArray]) {
+            if (!x) continue;
+            const sId = parseInt(x.sessionID ?? x.session ?? 0);
+            if (!sId) continue;
+            const d1 = parseInt(x.d1 || 0), d2 = parseInt(x.d2 || 0), d3 = parseInt(x.d3 || 0), sum = d1 + d2 + d3;
+            if (d1 >= 1 && d1 <= 6 && d2 >= 1 && d2 <= 6 && d3 >= 1 && d3 <= 6) {
+              map.set(sId, sum >= 11 ? 'T' : 'X');
             }
           }
-          return list;
+
+          const sortedSessionIds = Array.from(map.keys()).sort((a, b) => a - b);
+          return sortedSessionIds.map(id => map.get(id));
         }
 
         function predictToolMrTin8PP(history) {
@@ -1909,6 +1915,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
                 window._syncLog("Chụp dòng tiền mốc 20s.");
 
                 const historyList = getHistoryArray();
+                window._syncLog(`📊 Đã nạp thành công ${historyList.length} phiên lịch sử. Đang tính toán 8 phương pháp ToolMrTin...`);
                 const pred = predictToolMrTin8PP(historyList);
 
                 placed=true; lastPred=pred; lastAmt=curBet; activeSession=phien;
