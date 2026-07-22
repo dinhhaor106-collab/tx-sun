@@ -1577,10 +1577,8 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
                 const result=match.ket_qua;
                 const finalSnap30=snap30||getSnapFromFlow(30);
                 const finalSnap20=snap20||getSnapFromFlow(20);
-                const syncPayload={phien:activeSession,ket_qua:result,xuc_xac:match.xuc_xac||"",tong_diem:match.tong_diem||(result==='Tài'?11:10),snap_30:finalSnap30,snap_20:finalSnap20,du_doan:lastPred,money_flow:[...moneyFlow]};
-
                 if (lastPred===result) {
-                  totalProfit += Math.round(lastAmt * 0.98);
+                  totalProfit += Math.max(1, Math.round(lastAmt * 0.98));
                   curBet=baseBet; stage=1;
                   window._syncLog(`Phiên #${activeSession} ra ${result} → THẮNG! Reset mức cược.`);
                 } else {
@@ -1588,6 +1586,8 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
                   curBet=lastAmt*2; stage++;
                   window._syncLog(`Phiên #${activeSession} ra ${result} → THUA. Gấp x2.`);
                 }
+
+                const syncPayload={phien:activeSession,ket_qua:result,xuc_xac:match.xuc_xac||"",tong_diem:match.tong_diem||(result==='Tài'?11:10),snap_30:finalSnap30,snap_20:finalSnap20,du_doan:lastPred,money_flow:[...moneyFlow],profit:totalProfit};
                 snap30=null; snap20=null; placed=false; activeSession=null; moneyFlow.length=0;
 
                 fetch(`http://localhost:${serverPort}/api/sync-result`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(syncPayload)}).catch(()=>{});
@@ -1861,7 +1861,11 @@ app.post('/api/bot/update-state', (req, res) => {
 // ===== CÁC ENDPOINT ĐỒNG BỘ DATA & LỊCH SỬ CŨ =====
 
 app.post('/api/sync-result', (req, res) => {
-  const { phien, ket_qua, xuc_xac, tong_diem, du_doan, snap_30, snap_20, money_flow } = req.body;
+  const { phien, ket_qua, xuc_xac, tong_diem, du_doan, snap_30, snap_20, money_flow, profit } = req.body;
+  if (profit !== undefined) {
+    botState.profit = profit;
+  }
+
   if (!phien || !ket_qua) {
     return res.status(400).json({ error: 'Thiếu thông tin phiên hoặc kết quả' });
   }
