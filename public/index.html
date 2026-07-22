@@ -389,6 +389,20 @@
           </div>
         </details>
       </div>
+      <div style="margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px;">
+        <details open style="color: rgba(255,255,255,0.6); font-size: 13px; font-weight: bold; cursor: pointer;">
+          <summary style="outline:none; color: #0088cc; margin-bottom: 5px;">✈️ Cấu hình Telegram Bot (Thông báo & Điều khiển)</summary>
+          <div class="form-group" style="margin-top: 10px;">
+            <label>Telegram Bot Token</label>
+            <input type="text" id="telegramToken" placeholder="VD: 8440277821:AAF8UYv52S...">
+          </div>
+          <div class="form-group" style="margin-top: 10px;">
+            <label>Telegram Chat ID</label>
+            <input type="text" id="telegramChatId" placeholder="VD: 8528261750">
+          </div>
+          <button type="button" id="btn-test-telegram" style="background: #0088cc; color: white; border: none; padding: 10px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; margin-top: 8px; width: 100%;">📲 Gửi tin nhắn thử nghiệm Telegram</button>
+        </details>
+      </div>
       <div class="btn-group">
         <button class="btn-start" id="btn-start">Khởi chạy Bot</button>
         <button class="btn-stop" id="btn-stop" style="display: none;">Dừng hoạt động</button>
@@ -461,6 +475,9 @@
     const proxyServerInput = document.getElementById('proxyServer');
     const proxyUserInput = document.getElementById('proxyUser');
     const proxyPassInput = document.getElementById('proxyPass');
+    const telegramTokenInput = document.getElementById('telegramToken');
+    const telegramChatIdInput = document.getElementById('telegramChatId');
+    const btnTestTelegram = document.getElementById('btn-test-telegram');
 
     // Khôi phục cấu hình từ localStorage
     usernameInput.value = localStorage.getItem('sun_username') || '';
@@ -475,6 +492,40 @@
     
     proxyUserInput.value = localStorage.getItem('sun_proxyUser') || '';
     proxyPassInput.value = localStorage.getItem('sun_proxyPass') || '';
+    
+    telegramTokenInput.value = localStorage.getItem('sun_telegramToken') || '8440277821:AAF8UYv52S_7ZU1YJnvy3Ve8ZOU-T7UFcw0';
+    telegramChatIdInput.value = localStorage.getItem('sun_telegramChatId') || '8528261750';
+
+    btnTestTelegram.onclick = async () => {
+      const token = telegramTokenInput.value.trim();
+      const chatId = telegramChatIdInput.value.trim();
+      if (!token || !chatId) {
+        alert("Vui lòng điền Telegram Bot Token và Chat ID!");
+        return;
+      }
+      btnTestTelegram.disabled = true;
+      btnTestTelegram.textContent = "Đang kết nối thử...";
+      try {
+        const res = await fetch('/api/telegram/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, chatId })
+        });
+        const data = await res.json();
+        if (data.status === 'success') {
+          alert("✅ Gửi tin nhắn thử nghiệm Telegram thành công! Hãy mở ứng dụng Telegram kiểm tra.");
+          localStorage.setItem('sun_telegramToken', token);
+          localStorage.setItem('sun_telegramChatId', chatId);
+        } else {
+          alert(`❌ Lỗi gửi Telegram: ${data.message}`);
+        }
+      } catch(e) {
+        alert(`Lỗi kết nối: ${e.message}`);
+      } finally {
+        btnTestTelegram.disabled = false;
+        btnTestTelegram.textContent = "📲 Gửi tin nhắn thử nghiệm Telegram";
+      }
+    };
 
     const statSession = document.getElementById('stat-session');
     const statTimer = document.getElementById('stat-timer');
@@ -509,6 +560,8 @@
       const proxyServer = proxyServerInput.value.trim();
       const proxyUser = proxyUserInput.value.trim();
       const proxyPass = proxyPassInput.value.trim();
+      const telegramToken = telegramTokenInput.value.trim();
+      const telegramChatId = telegramChatIdInput.value.trim();
 
       if (!username || !password) {
         alert("Vui lòng điền tài khoản và mật khẩu game!");
@@ -521,6 +574,8 @@
       localStorage.setItem('sun_proxyServer', proxyServer);
       localStorage.setItem('sun_proxyUser', proxyUser);
       localStorage.setItem('sun_proxyPass', proxyPass);
+      localStorage.setItem('sun_telegramToken', telegramToken);
+      localStorage.setItem('sun_telegramChatId', telegramChatId);
 
       btnStart.disabled = true;
       btnStart.textContent = "Đang khởi động...";
@@ -529,7 +584,7 @@
         const res = await fetch('/api/bot/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password, baseBet, capital, proxyServer, proxyUser, proxyPass })
+          body: JSON.stringify({ username, password, baseBet, capital, proxyServer, proxyUser, proxyPass, telegramToken, telegramChatId })
         });
         const data = await res.json();
         if (data.status === 'success') {

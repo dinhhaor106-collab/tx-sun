@@ -39,6 +39,169 @@ let lastTickTime = Date.now();
 let lastActiveConfig = null;
 let isRestarting = false;
 
+// ===== CẤU HÌNH THÔNG BÁO & ĐIỀU KHIỂN VIA TELEGRAM =====
+let telegramToken = process.env.TELEGRAM_TOKEN || '8440277821:AAF8UYv52S_7ZU1YJnvy3Ve8ZOU-T7UFcw0';
+let telegramChatId = process.env.TELEGRAM_CHAT_ID || '8528261750';
+let lastTelegramUpdateId = 0;
+
+function sendTelegramMessage(text, customChatId = null, customToken = null) {
+  const token = customToken || telegramToken;
+  const chatId = customChatId || telegramChatId;
+  if (!token || !chatId) return;
+
+  try {
+    const https = require('https');
+    const data = JSON.stringify({
+      chat_id: chatId,
+      text: text,
+      parse_mode: 'HTML'
+    });
+
+    const options = {
+      hostname: 'api.telegram.org',
+      port: 443,
+      path: `/bot${token}/sendMessage`,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data)
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {});
+    });
+
+    req.on('error', (e) => {
+      console.error('[Telegram API Error]', e.message);
+    });
+
+    req.write(data);
+    req.end();
+  } catch (e) {
+    console.error('[Telegram Exception]', e.message);
+  }
+}
+
+async function pollTelegramUpdates() {
+  const token = telegramToken;
+  if (!token) return;
+
+  try {
+    const https = require('https');
+    const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${lastTelegramUpdateId + 1}&timeout=5`;
+    
+    https.get(url, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try {
+          const data = JSON.parse(body);
+          if (data.ok && Array.isArray(data.result)) {
+            for (const update of data.result) {
+              lastTelegramUpdateId = update.update_id;
+              if (update.message && update.message.text) {
+                handleTelegramCommand(update.message);
+              }
+            }
+          }
+        } catch(e) {}
+      });
+    }).on('error', () => {});
+  } catch(e) {}
+}
+
+async function handleTelegramCommand(msg) {
+  const chatId = String(msg.chat.id);
+  const text = msg.text.trim();
+
+  if (text.startsWith('/start') || text.startsWith('/help')) {
+    const reply = `<b>🤖 BOT DỰ ĐOÁN TÀI XỈU SUNWIN (28D)</b>\n\n` +
+      `<b>Danh sách lệnh hỗ trợ:</b>\n` +
+      `🔹 /status - Xem trạng thái bot, phiên cược & lợi nhuận\n` +
+      `🔹 /startbot - Khởi chạy bot cược ngầm 24/7\n` +
+      `🔹 /stopbot - Dừng hoạt động bot cược\n` +
+      `🔹 /history - Xem lịch sử 5 phiên gần nhất\n` +
+      `🔹 /help - Hiển thị hướng dẫn này`;
+    sendTelegramMessage(reply, chatId);
+  } else if (text.startsWith('/status')) {
+    const runningStr = botState.running ? "🟢 ĐANG CHẠY NGẦM 24/7" : "🔴 ĐANG DỪNG HOẠT ĐỘNG";
+    const sessionStr = botState.currentSession ? `#${botState.currentSession}` : "Chờ dữ liệu...";
+    const timerStr = botState.timerVal !== null ? `${botState.timerVal}s` : "--s";
+    const predStr = botState.prediction || "---";
+    const amountStr = (botState.amount || 0).toLocaleString() + "đ";
+    const stageStr = `Tay ${botState.stage || 1}`;
+    const profit = botState.profit || 0;
+    const profitStr = (profit >= 0 ? "+" : "") + profit.toLocaleString() + "đ";
+
+    const reply = `<b>📊 TRẠNG THÁI HỆ THỐNG</b>\n\n` +
+      `• Trạng thái: <b>${runningStr}</b>\n` +
+      `• Phiên hiện tại: <b>${sessionStr}</b> (${timerStr})\n` +
+      `• Dự đoán: <b>${predStr}</b>\n` +
+      `• Mức cược: <b>${amountStr}</b> (${stageStr})\n` +
+      `• Tổng lợi nhuận: <b>${profitStr}</b>`;
+    sendTelegramMessage(reply, chatId);
+  } else if (text.startsWith('/startbot')) {
+    if (botState.running || isStarting) {
+      sendTelegramMessage(`⚠️ Bot đang trong trạng thái chạy hoặc đang khởi động!`, chatId);
+    } else {
+      if (lastActiveConfig) {
+        sendTelegramMessage(`🚀 Nhận lệnh Telegram! Đang khởi động bot cho tài khoản "${lastActiveConfig.username}"...`, chatId);
+        startPuppeteerBot(
+          lastActiveConfig.username,
+          lastActiveConfig.password,
+          lastActiveConfig.baseBet,
+          lastActiveConfig.capital,
+          lastActiveConfig.proxyServer,
+          lastActiveConfig.proxyUser,
+          lastActiveConfig.proxyPass
+        ).catch(err => sendTelegramMessage(`❌ Lỗi khởi động: ${err.message}`, chatId));
+      } else {
+        sendTelegramMessage(`⚠️ Chưa có cấu hình tài khoản! Vui lòng bấm Khởi chạy lần đầu trên Web Dashboard.`, chatId);
+      }
+    }
+  } else if (text.startsWith('/stopbot')) {
+    if (!botState.running) {
+      sendTelegramMessage(`ℹ️ Bot hiện tại đang dừng sẵn rồi.`, chatId);
+    } else {
+      sendTelegramMessage(`🛑 Nhận lệnh Telegram! Đang tiến hành tắt bot...`, chatId);
+      stopPuppeteerBot();
+    }
+  } else if (text.startsWith('/history')) {
+    const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
+    if (!fs.existsSync(filePath)) {
+      sendTelegramMessage(`ℹ️ Chưa có dữ liệu lịch sử phiên nào.`, chatId);
+      return;
+    }
+    try {
+      const data = fs.readFileSync(filePath, 'utf8');
+      const lines = data.trim().split('\n').filter(Boolean);
+      const records = lines.map(line => { try { return JSON.parse(line); } catch(e) { return null; } }).filter(Boolean);
+      const recent = records.slice(-5).reverse();
+
+      if (recent.length === 0) {
+        sendTelegramMessage(`ℹ️ Chưa có dữ liệu lịch sử phiên nào.`, chatId);
+        return;
+      }
+
+      let historyText = `<b>📜 LỊCH SỬ 5 PHIÊN GẦN NHẤT:</b>\n\n`;
+      for (const r of recent) {
+        const pred = r.du_doan || "---";
+        const result = r.ket_qua || "---";
+        const win = pred === result ? "✅ THẮNG" : (pred !== "---" && result !== "---" ? "❌ THUA" : "➖");
+        historyText += `• <b>#${r.phien}</b>: Ra <b>${result}</b> (${r.xuc_xac || ''} = ${r.tong_diem || ''}đ) | Dự đoán: <b>${pred}</b> -> ${win}\n`;
+      }
+      sendTelegramMessage(historyText, chatId);
+    } catch(e) {
+      sendTelegramMessage(`❌ Lỗi đọc lịch sử: ${e.message}`, chatId);
+    }
+  }
+}
+
+setInterval(pollTelegramUpdates, 3000);
+
 // Trọng số phi tuyến tính 28D siêu tối ưu v4.0
 function getEnsemblePrediction(curr, prev, losses) {
   const x1 = prev && prev.ket_qua ? (prev.ket_qua === 'Tài' ? 1 : -1) : 1;
@@ -204,6 +367,14 @@ function addServerLog(msg) {
   console.log(formatted);
   botState.logs.push(formatted);
   if (botState.logs.length > 40) botState.logs.shift();
+
+  if (msg.includes('Dự đoán phiên #')) {
+    sendTelegramMessage(`🎯 <b>[DỰ ĐOÁN PHIÊN MỚI]</b>\n${msg}`);
+  } else if (msg.includes('thành công!') && msg.includes('Đặt cược')) {
+    sendTelegramMessage(`✅ <b>[XÁC NHẬN CƯỢC]</b>\n${msg}`);
+  } else if (msg.includes('CẢNH BÁO') || msg.includes('WEBGL CRASH') || msg.includes('PAGE CRASHED')) {
+    sendTelegramMessage(`⚠️ <b>[CẢNH BÁO HỆ THỐNG]</b>\n${msg}`);
+  }
 }
 
 async function handleBotCrash() {
@@ -1463,8 +1634,11 @@ async function stopPuppeteerBot() {
 // ===== HTTP ENDPOINTS ĐIỀU KHIỂN BOT DI ĐỘNG =====
 
 app.post('/api/bot/start', (req, res) => {
-  const { username, password, baseBet, capital, proxyServer, proxyUser, proxyPass } = req.body;
+  const { username, password, baseBet, capital, proxyServer, proxyUser, proxyPass, telegramToken: tgTok, telegramChatId: tgChat } = req.body;
   
+  if (tgTok) telegramToken = tgTok;
+  if (tgChat) telegramChatId = tgChat;
+
   if (botState.running || isStarting) {
     return res.status(400).json({ status: 'error', message: 'Bot đang chạy hoặc đang trong quá trình khởi động.' });
   }
@@ -1478,7 +1652,7 @@ app.post('/api/bot/start', (req, res) => {
 
   isStarting = true;
   // Lưu cấu hình để auto-restart sau khi container khởi động lại
-  saveBotConfig({ username, password, baseBet, capital, proxyServer, proxyUser, proxyPass });
+  saveBotConfig({ username, password, baseBet, capital, proxyServer, proxyUser, proxyPass, telegramToken, telegramChatId });
   // Chạy nền không chặn request trả về điện thoại
   startPuppeteerBot(username, password, baseBet, capital, proxyServer, proxyUser, proxyPass)
     .catch(err => {
@@ -1489,6 +1663,17 @@ app.post('/api/bot/start', (req, res) => {
     });
 
   res.json({ status: 'success', message: 'Đang khởi chạy ngầm...' });
+});
+
+app.post('/api/telegram/test', (req, res) => {
+  const { token, chatId } = req.body;
+  if (!token || !chatId) {
+    return res.status(400).json({ status: 'error', message: 'Thiếu Token hoặc Chat ID' });
+  }
+  telegramToken = token;
+  telegramChatId = chatId;
+  sendTelegramMessage("✅ <b>[KẾT NỐI THÀNH CÔNG]</b> Telegram Bot đã được liên kết thành công với hệ thống cược Sunwin!", chatId, token);
+  res.json({ status: 'success' });
 });
 
 app.post('/api/bot/stop', async (req, res) => {
@@ -1612,11 +1797,22 @@ app.post('/api/sync-result', (req, res) => {
   const predToCompare = record.du_doan || du_doan;
   if (predToCompare) {
     record.du_doan = predToCompare;
-    if (predToCompare === ket_qua) {
+    const isWin = predToCompare === ket_qua;
+    if (isWin) {
       consecLosses = 0;
     } else {
       consecLosses++;
     }
+
+    const outcomeSymbol = isWin ? "✅ THẮNG" : "❌ THUA";
+    const profitVal = (botState.profit || 0).toLocaleString() + "đ";
+    sendTelegramMessage(
+      `<b>[KẾT QUẢ PHIÊN #${sessId}]</b>\n` +
+      `• Ra: <b>${ket_qua}</b> (${xuc_xac || ''} = ${tong_diem || ''}đ)\n` +
+      `• Dự đoán: <b>${predToCompare}</b> (${outcomeSymbol})\n` +
+      `• Chuỗi thua: ${consecLosses} tay\n` +
+      `• Tổng lợi nhuận: <b>${profitVal}</b>`
+    );
   }
 
   saveCompletedRecord(record);
