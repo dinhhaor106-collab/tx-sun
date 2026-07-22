@@ -255,52 +255,185 @@ async function handleTelegramCommand(msg) {
 
 setInterval(pollTelegramUpdates, 3000);
 
-// Trọng số phi tuyến tính 28D siêu tối ưu v4.0
-function getEnsemblePrediction(curr, prev, losses) {
-  const x1 = prev && prev.ket_qua ? (prev.ket_qua === 'Tài' ? 1 : -1) : 1;
-  
-  const snap_30 = curr.snap_30 || {};
-  const snap_20 = curr.snap_20 || {};
+// === THUẬT TOÁN TOOLMRTIN - 8 PHƯƠNG PHÁP CHÍNH XÁC THEO SMALI ===
+function predictToolMrTin8PP(history) {
+  const n = history.length;
 
-  const tien_tai_30 = snap_30.tien_tai || 0;
-  const tien_xiu_30 = snap_30.tien_xiu || 0;
-  const x2 = tien_tai_30 > tien_xiu_30 ? 1 : -1;
+  function k_fallback() {
+    if (n === 0) return Math.random() < 0.5 ? "T" : "X";
+    let t_cnt = 0;
+    for (let i = 0; i < n; i++) { if (history[i] === "T") t_cnt++; }
+    const x_cnt = n - t_cnt;
+    if (t_cnt > x_cnt) return "T";
+    if (x_cnt > t_cnt) return "X";
+    return Math.random() < 0.5 ? "T" : "X";
+  }
 
-  const tien_tai_20 = snap_20.tien_tai || 0;
-  const tien_xiu_20 = snap_20.tien_xiu || 0;
-  const x3 = tien_tai_20 > tien_xiu_20 ? 1 : -1;
+  function method_b() {
+    if (n < 5) return k_fallback();
+    const last = history[n - 1];
+    let cnt_same = 0, cnt_T = 0;
+    for (let i = 0; i < n - 1; i++) {
+      if (history[i] === last) {
+        cnt_same++;
+        if (history[i + 1] === "T") cnt_T++;
+      }
+    }
+    let prob = cnt_same > 0 ? cnt_T / cnt_same : 0.5;
+    if (n >= 3) {
+      const prev = history[n - 2];
+      let match = 0, t_after = 0;
+      for (let i = 0; i < n - 2; i++) {
+        if (history[i] === prev && history[i + 1] === last) {
+          match++;
+          if (history[i + 2] === "T") t_after++;
+        }
+      }
+      if (match >= 3) {
+        const prob2 = t_after / match;
+        prob = (prob + prob2) / 2.0;
+      }
+    }
+    return prob >= 0.5 ? "T" : "X";
+  }
 
-  const nguoi_tai_30 = snap_30.nguoi_tai || 0;
-  const nguoi_xiu_30 = snap_30.nguoi_xiu || 0;
-  const x4 = nguoi_tai_30 > nguoi_xiu_30 ? 1 : -1;
+  function method_c() {
+    if (n < 8) return k_fallback();
+    for (let gap = 2; gap <= 6; gap++) {
+      const windowLen = Math.min(gap * 3, n);
+      let matches = 0;
+      for (let i = n - 1; i >= n - windowLen; i--) {
+        if (i >= gap && history[i] === history[i - gap]) {
+          matches++;
+        }
+      }
+      const ratio = matches / windowLen;
+      if (ratio >= 0.7) {
+        const idx = ((n - 1) % gap) - gap + 1;
+        if (idx >= 0 && idx < n) {
+          return history[idx];
+        }
+      }
+    }
+    return k_fallback();
+  }
 
-  const diff_tai = tien_tai_20 - tien_tai_30;
-  const diff_xiu = tien_xiu_20 - tien_xiu_30;
-  const x5 = diff_tai > diff_xiu ? 1 : -1;
+  function method_d() {
+    if (n < 5) return k_fallback();
+    if (n >= 12) {
+      const steps = [1, 1, 2, 3, 5];
+      let pos = n - 1;
+      let ok = true;
+      for (let s = 0; s < steps.length; s++) {
+        const step = steps[s];
+        if (pos - step + 1 < 0) { ok = false; break; }
+        const val = history[pos];
+        for (let j = 0; j < step; j++) {
+          if (history[pos - j] !== val) { ok = false; break; }
+        }
+        if (!ok) break;
+        pos -= step;
+      }
+      if (ok) {
+        return history[n - 1] === "T" ? "X" : "T";
+      }
+    }
+    let streak = 1;
+    for (let i = n - 2; i >= 0; i--) {
+      if (history[i] === history[n - 1]) streak++;
+      else break;
+    }
+    if ([2, 3, 5, 8].includes(streak)) {
+      return history[n - 1] === "T" ? "X" : "T";
+    }
+    return k_fallback();
+  }
 
-  const nguoi_tai_20 = snap_20.nguoi_tai || 0;
-  const nguoi_xiu_20 = snap_20.nguoi_xiu || 0;
-  const x6 = nguoi_tai_20 > nguoi_xiu_20 ? 1 : -1;
-
-  const diff_users_tai = nguoi_tai_20 - nguoi_tai_30;
-  const diff_users_xiu = nguoi_xiu_20 - nguoi_xiu_30;
-  const x7 = diff_users_tai > diff_users_xiu ? 1 : -1;
-
-  const base = [x1, x2, x3, x4, x5, x6, x7];
-  const terms = [...base];
-  for (let i = 0; i < base.length; i++) {
-    for (let j = i + 1; j < base.length; j++) {
-      terms.push(base[i] * base[j]);
+  function method_e() {
+    if (n < 4) return k_fallback();
+    let tt = 0, tx = 0, xt = 0, xx = 0;
+    for (let i = 0; i < n - 1; i++) {
+      const a = history[i], b = history[i + 1];
+      if (a === "T" && b === "T") tt++;
+      else if (a === "T" && b === "X") tx++;
+      else if (a === "X" && b === "T") xt++;
+      else if (a === "X" && b === "X") xx++;
+    }
+    if (history[n - 1] === "T") {
+      return tt >= tx ? "T" : "X";
+    } else {
+      return xt >= xx ? "T" : "X";
     }
   }
 
-  const w = [6, 9, 12, -1, 11, -2, -12, -4, -1, 1, -10, -2, -13, -9, 4, -8, 0, -11, 9, 2, -5, 7, -12, 1, -8, -12, 8, 12];
-
-  let score = 0;
-  for (let i = 0; i < 28; i++) {
-    score += w[i] * terms[i];
+  function method_f() {
+    if (n < 6) return k_fallback();
+    const windowLen = Math.min(6, n);
+    const mid = n - windowLen;
+    const prev_cnt = Math.min(6, mid);
+    let t1 = 0, t2 = 0;
+    for (let i = mid; i < n; i++) { if (history[i] === "T") t1++; }
+    for (let i = mid - prev_cnt; i < mid; i++) { if (i >= 0 && history[i] === "T") t2++; }
+    const r1 = t1 / windowLen;
+    const r2 = prev_cnt > 0 ? t2 / prev_cnt : 0.5;
+    const diff = r1 - r2;
+    if (diff > 0.3) return "T";
+    if (diff < -0.3) return "X";
+    if (r1 > 0.6) return "X";
+    if (r1 < 0.4) return "T";
+    return k_fallback();
   }
-  return score >= 0 ? 'Tài' : 'Xỉu';
+
+  function method_g() {
+    if (n < 6) return k_fallback();
+    const a = history[n - 1], b = history[n - 2], c = history[n - 3], d = history[n - 4];
+    if (a !== b && b !== c && c !== d) return a === "T" ? "X" : "T";
+    if (a === b && b !== c && c === d) return a === "T" ? "X" : "T";
+    if (a === b && b === c) return a === "T" ? "X" : "T";
+    return k_fallback();
+  }
+
+  function method_h() {
+    if (n === 0) return Math.random() < 0.5 ? "T" : "X";
+    let streak = 1;
+    for (let i = n - 2; i >= 0; i--) {
+      if (history[i] === history[n - 1]) streak++;
+      else break;
+    }
+    if (streak >= 3) return history[n - 1] === "T" ? "X" : "T";
+    return k_fallback();
+  }
+
+  function method_i() {
+    if (n === 0) return "T";
+    let t_w = 0.0, x_w = 0.0;
+    for (let i = 0; i < n; i++) {
+      const w = Math.pow(1.15, i);
+      if (history[i] === "T") t_w += w;
+      else x_w += w;
+    }
+    return t_w >= x_w ? "T" : "X";
+  }
+
+  if (n < 3) {
+    return Math.random() < 0.5 ? "Tài" : "Xỉu";
+  }
+
+  const results = [
+    method_h(), method_g(), method_i(), method_e(),
+    method_d(), method_c(), method_f(), method_b()
+  ];
+  const weights = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+  let sT = 0.0, sX = 0.0;
+  for (let i = 0; i < results.length; i++) {
+    if (results[i] === "T") sT += weights[i];
+    else sX += weights[i];
+  }
+  return sT >= sX ? "Tài" : "Xỉu";
+}
+
+function getEnsemblePrediction(historyList) {
+  return predictToolMrTin8PP(historyList || []);
 }
 
 function loadHistoryAndSync() {
@@ -1538,20 +1671,170 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
           return null;
         }
 
-        function predictEnsemble28D(x1, x2, x3, x4, x5, x6, x7) {
-          const base = [x1, x2, x3, x4, x5, x6, x7];
-          const terms = [...base];
-          for (let i = 0; i < base.length; i++) {
-            for (let j = i + 1; j < base.length; j++) {
-              terms.push(base[i] * base[j]);
+        function getHistoryArray() {
+          if (!txMain) return [];
+          const all = [...(Array.isArray(txMain._results)?txMain._results:[]), ...((txMain.taiXiuSessionHistoryView&&Array.isArray(txMain.taiXiuSessionHistoryView._result))?txMain.taiXiuSessionHistoryView._result:[])];
+          const list = [];
+          for (const item of all) {
+            if (!item) continue;
+            const d1=parseInt(item.d1||0), d2=parseInt(item.d2||0), d3=parseInt(item.d3||0), sum=d1+d2+d3;
+            if (d1>=1&&d1<=6&&d2>=1&&d2<=6&&d3>=1&&d3<=6) {
+              list.push(sum>=11?'T':'X');
             }
           }
-          const w = [6, 9, 12, -1, 11, -2, -12, -4, -1, 1, -10, -2, -13, -9, 4, -8, 0, -11, 9, 2, -5, 7, -12, 1, -8, -12, 8, 12];
-          let score = 0;
-          for (let i = 0; i < 28; i++) {
-            score += w[i] * terms[i];
+          return list;
+        }
+
+        function predictToolMrTin8PP(history) {
+          const n = history.length;
+          function k_fallback() {
+            if (n === 0) return Math.random() < 0.5 ? "T" : "X";
+            let t_cnt = 0;
+            for (let i = 0; i < n; i++) { if (history[i] === "T") t_cnt++; }
+            const x_cnt = n - t_cnt;
+            if (t_cnt > x_cnt) return "T";
+            if (x_cnt > t_cnt) return "X";
+            return Math.random() < 0.5 ? "T" : "X";
           }
-          return score >= 0 ? 'Tài' : 'Xỉu';
+          function method_b() {
+            if (n < 5) return k_fallback();
+            const last = history[n - 1];
+            let cnt_same = 0, cnt_T = 0;
+            for (let i = 0; i < n - 1; i++) {
+              if (history[i] === last) {
+                cnt_same++;
+                if (history[i + 1] === "T") cnt_T++;
+              }
+            }
+            let prob = cnt_same > 0 ? cnt_T / cnt_same : 0.5;
+            if (n >= 3) {
+              const prev = history[n - 2];
+              let match = 0, t_after = 0;
+              for (let i = 0; i < n - 2; i++) {
+                if (history[i] === prev && history[i + 1] === last) {
+                  match++;
+                  if (history[i + 2] === "T") t_after++;
+                }
+              }
+              if (match >= 3) {
+                const prob2 = t_after / match;
+                prob = (prob + prob2) / 2.0;
+              }
+            }
+            return prob >= 0.5 ? "T" : "X";
+          }
+          function method_c() {
+            if (n < 8) return k_fallback();
+            for (let gap = 2; gap <= 6; gap++) {
+              const windowLen = Math.min(gap * 3, n);
+              let matches = 0;
+              for (let i = n - 1; i >= n - windowLen; i--) {
+                if (i >= gap && history[i] === history[i - gap]) matches++;
+              }
+              const ratio = matches / windowLen;
+              if (ratio >= 0.7) {
+                const idx = ((n - 1) % gap) - gap + 1;
+                if (idx >= 0 && idx < n) return history[idx];
+              }
+            }
+            return k_fallback();
+          }
+          function method_d() {
+            if (n < 5) return k_fallback();
+            if (n >= 12) {
+              const steps = [1, 1, 2, 3, 5];
+              let pos = n - 1;
+              let ok = true;
+              for (let s = 0; s < steps.length; s++) {
+                const step = steps[s];
+                if (pos - step + 1 < 0) { ok = false; break; }
+                const val = history[pos];
+                for (let j = 0; j < step; j++) {
+                  if (history[pos - j] !== val) { ok = false; break; }
+                }
+                if (!ok) break;
+                pos -= step;
+              }
+              if (ok) return history[n - 1] === "T" ? "X" : "T";
+            }
+            let streak = 1;
+            for (let i = n - 2; i >= 0; i--) {
+              if (history[i] === history[n - 1]) streak++;
+              else break;
+            }
+            if ([2, 3, 5, 8].includes(streak)) return history[n - 1] === "T" ? "X" : "T";
+            return k_fallback();
+          }
+          function method_e() {
+            if (n < 4) return k_fallback();
+            let tt = 0, tx = 0, xt = 0, xx = 0;
+            for (let i = 0; i < n - 1; i++) {
+              const a = history[i], b = history[i + 1];
+              if (a === "T" && b === "T") tt++;
+              else if (a === "T" && b === "X") tx++;
+              else if (a === "X" && b === "T") xt++;
+              else if (a === "X" && b === "X") xx++;
+            }
+            if (history[n - 1] === "T") return tt >= tx ? "T" : "X";
+            else return xt >= xx ? "T" : "X";
+          }
+          function method_f() {
+            if (n < 6) return k_fallback();
+            const windowLen = Math.min(6, n);
+            const mid = n - windowLen;
+            const prev_cnt = Math.min(6, mid);
+            let t1 = 0, t2 = 0;
+            for (let i = mid; i < n; i++) { if (history[i] === "T") t1++; }
+            for (let i = mid - prev_cnt; i < mid; i++) { if (i >= 0 && history[i] === "T") t2++; }
+            const r1 = t1 / windowLen;
+            const r2 = prev_cnt > 0 ? t2 / prev_cnt : 0.5;
+            const diff = r1 - r2;
+            if (diff > 0.3) return "T";
+            if (diff < -0.3) return "X";
+            if (r1 > 0.6) return "X";
+            if (r1 < 0.4) return "T";
+            return k_fallback();
+          }
+          function method_g() {
+            if (n < 6) return k_fallback();
+            const a = history[n - 1], b = history[n - 2], c = history[n - 3], d = history[n - 4];
+            if (a !== b && b !== c && c !== d) return a === "T" ? "X" : "T";
+            if (a === b && b !== c && c === d) return a === "T" ? "X" : "T";
+            if (a === b && b === c) return a === "T" ? "X" : "T";
+            return k_fallback();
+          }
+          function method_h() {
+            if (n === 0) return Math.random() < 0.5 ? "T" : "X";
+            let streak = 1;
+            for (let i = n - 2; i >= 0; i--) {
+              if (history[i] === history[n - 1]) streak++;
+              else break;
+            }
+            if (streak >= 3) return history[n - 1] === "T" ? "X" : "T";
+            return k_fallback();
+          }
+          function method_i() {
+            if (n === 0) return "T";
+            let t_w = 0.0, x_w = 0.0;
+            for (let i = 0; i < n; i++) {
+              const w = Math.pow(1.15, i);
+              if (history[i] === "T") t_w += w;
+              else x_w += w;
+            }
+            return t_w >= x_w ? "T" : "X";
+          }
+          if (n < 3) return Math.random() < 0.5 ? "Tài" : "Xỉu";
+          const results = [
+            method_h(), method_g(), method_i(), method_e(),
+            method_d(), method_c(), method_f(), method_b()
+          ];
+          const weights = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+          let sT = 0.0, sX = 0.0;
+          for (let i = 0; i < results.length; i++) {
+            if (results[i] === "T") sT += weights[i];
+            else sX += weights[i];
+          }
+          return sT >= sX ? "Tài" : "Xỉu";
         }
 
         function loop() {
@@ -1625,28 +1908,10 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
                 snap20={tien_tai:toCleanNumber(txMain.currentTaiMoney),tien_xiu:toCleanNumber(txMain.currentXiuMoney),nguoi_tai:toCleanNumber(txMain.taiPlayersCount),nguoi_xiu:toCleanNumber(txMain.xiuPlayersCount),timestamp:new Date().toISOString()};
                 window._syncLog("Chụp dòng tiền mốc 20s.");
 
-                const finalSnap30=snap30||getSnapFromFlow(30);
-                const prevMatch=getLocalSessionResult(phien-1);
-                const prevOutcome=(prevMatch?.ket_qua)?prevMatch.ket_qua:getLatestSessionResultFallback();
+                const historyList = getHistoryArray();
+                const pred = predictToolMrTin8PP(historyList);
 
-                if (prevOutcome && finalSnap30) {
-                  const x1=prevOutcome==='Tài'?1:-1;
-                  const x2=finalSnap30.tien_tai>finalSnap30.tien_xiu?1:-1;
-                  const x3=snap20.tien_tai>snap20.tien_xiu?1:-1;
-                  const x4=finalSnap30.nguoi_tai>finalSnap30.nguoi_xiu?1:-1;
-                  const x5=(snap20.tien_tai-finalSnap30.tien_tai)>(snap20.tien_xiu-finalSnap30.tien_xiu)?1:-1;
-                  
-                  const nguoi_tai_20 = snap20.nguoi_tai || 0;
-                  const nguoi_xiu_20 = snap20.nguoi_xiu || 0;
-                  const x6 = nguoi_tai_20 > nguoi_xiu_20 ? 1 : -1;
-
-                  const diff_users_tai = nguoi_tai_20 - finalSnap30.nguoi_tai;
-                  const diff_users_xiu = nguoi_xiu_20 - finalSnap30.nguoi_xiu;
-                  const x7 = diff_users_tai > diff_users_xiu ? 1 : -1;
-                  
-                  const pred=predictEnsemble28D(x1,x2,x3,x4,x5,x6,x7);
-
-                  placed=true; lastPred=pred; lastAmt=curBet; activeSession=phien;
+                placed=true; lastPred=pred; lastAmt=curBet; activeSession=phien;
 
                   window._syncLog(`Dự đoán phiên #${phien}: Đặt ${pred.toUpperCase()} ${lastAmt.toLocaleString()}đ`);
                   triggerButtonClick(pred==='Tài'?nodeTai:nodeXiu);
@@ -1666,9 +1931,6 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
                     }
                     checkCount++;
                   },20);
-                } else {
-                  window._syncLog("⚠️ Bỏ qua do thiếu dữ liệu 30s hoặc kết quả phiên cũ.");
-                }
               }
             }
           } catch(e) { console.error("Lỗi loop:", e.message); }
