@@ -241,12 +241,40 @@ async function handleTelegramCommand(msg) {
     } catch(e) {
       sendTelegramMessage(`❌ Lỗi đọc lịch sử: ${e.message}`, chatId);
     }
+  } else if (cmd === '/algo' || cmd === '/debug') {
+    const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
+    let historyList = [];
+    if (fs.existsSync(filePath)) {
+      try {
+        const data = fs.readFileSync(filePath, 'utf8');
+        const lines = data.trim().split('\n').filter(Boolean);
+        const records = lines.map(line => { try { return JSON.parse(line); } catch(e) { return null; } }).filter(Boolean);
+        historyList = records.map(r => r.ket_qua === 'Tài' ? 'T' : 'X');
+      } catch(e) {}
+    }
+
+    const info = analyzeToolMrTin8PP(historyList);
+    let text = `<b>🔬 CHI TIẾT THUẬT TOÁN 8 PHƯƠNG PHÁP</b>\n\n` +
+      `• Tổng lịch sử nạp: <b>${info.historyCount} phiên</b>\n` +
+      `• Bầu chọn: <b>Tài (${info.votes.Tai}/8)</b> vs <b>Xỉu (${info.votes.Xiu}/8)</b>\n` +
+      `• Độ tin cậy: <b>${info.confidence}</b>\n` +
+      `🎯 <b>DỰ ĐOÁN CUỐI: ${info.prediction.toUpperCase()}</b>\n\n` +
+      `<b>Chi tiết từng phương pháp:</b>\n`;
+
+    for (let i = 0; i < info.details.length; i++) {
+      const d = info.details[i];
+      const icon = d.prediction === info.prediction ? "✅" : "❌";
+      text += `${i + 1}. <b>${d.name}</b>: ${d.prediction} ${icon}\n`;
+    }
+
+    sendTelegramMessage(text, chatId);
   } else if (cmd === '/start' || cmd === '/help') {
-    const reply = `<b>🤖 BOT DỰ ĐOÁN TÀI XỈU SUNWIN (28D)</b>\n\n` +
+    const reply = `<b>🤖 BOT DỰ ĐOÁN TÀI XỈU SUNWIN</b>\n\n` +
       `<b>Danh sách lệnh hỗ trợ:</b>\n` +
-      `🔹 <code>/startbot [User] [Pass] [Cược] [Vốn]</code> - Bật bot (Nhập trực tiếp nick hoặc chạy nick đã lưu)\n` +
+      `🔹 <code>/startbot [User] [Pass] [Cược] [Vốn]</code> - Bật bot (Nhập nick hoặc dùng nick đã lưu)\n` +
       `🔹 /stopbot - Dừng hoạt động bot cược\n` +
       `🔹 /status - Xem trạng thái bot, phiên cược & lợi nhuận\n` +
+      `🔹 /algo - Xem chi tiết phân tích 8 phương pháp ToolMrTin\n` +
       `🔹 /history - Xem lịch sử 5 phiên gần nhất\n` +
       `🔹 <code>/c [Mã_Captcha]</code> - Gửi mã Captcha khi game yêu cầu\n` +
       `🔹 /help - Hiển thị hướng dẫn này`;
@@ -257,7 +285,7 @@ async function handleTelegramCommand(msg) {
 setInterval(pollTelegramUpdates, 3000);
 
 // === THUẬT TOÁN TOOLMRTIN - 8 PHƯƠNG PHÁP CHÍNH XÁC THEO SMALI ===
-function predictToolMrTin8PP(history) {
+function analyzeToolMrTin8PP(history) {
   const n = history.length;
 
   function k_fallback() {
@@ -416,21 +444,37 @@ function predictToolMrTin8PP(history) {
     return t_w >= x_w ? "T" : "X";
   }
 
-  if (n < 3) {
-    return Math.random() < 0.5 ? "Tài" : "Xỉu";
-  }
-
-  const results = [
-    method_h(), method_g(), method_i(), method_e(),
-    method_d(), method_c(), method_f(), method_b()
+  const methods = [
+    { name: "PP7-Streak", res: method_h() },
+    { name: "PP6-Luat", res: method_g() },
+    { name: "PP8-ExpW", res: method_i() },
+    { name: "PP4-Markov", res: method_e() },
+    { name: "PP3-Fibo", res: method_d() },
+    { name: "PP2-ChuKy", res: method_c() },
+    { name: "PP5-2Nua", res: method_f() },
+    { name: "PP1-XS-DK", res: method_b() }
   ];
-  const weights = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
+
   let sT = 0.0, sX = 0.0;
-  for (let i = 0; i < results.length; i++) {
-    if (results[i] === "T") sT += weights[i];
-    else sX += weights[i];
+  for (const m of methods) {
+    if (m.res === "T") sT += 1.0;
+    else sX += 1.0;
   }
-  return sT >= sX ? "Tài" : "Xỉu";
+  const winner = sT >= sX ? "Tài" : "Xỉu";
+  const confidence = (Math.max(sT, sX) / (sT + sX || 1) * 100).toFixed(1);
+
+  return {
+    prediction: winner,
+    confidence: confidence + "%",
+    historyCount: n,
+    votes: { Tai: sT, Xiu: sX },
+    details: methods.map(m => ({ name: m.name, prediction: m.res === "T" ? "Tài" : "Xỉu" }))
+  };
+}
+
+function predictToolMrTin8PP(history) {
+  const analysis = analyzeToolMrTin8PP(history || []);
+  return analysis.prediction;
 }
 
 function getEnsemblePrediction(historyList) {
@@ -2042,6 +2086,25 @@ app.get('/api/bot/status', (req, res) => {
     running: botState.running,
     waitingCaptcha: botState.waitingCaptcha,
     state: botState
+  });
+});
+
+app.get('/api/algorithm-details', (req, res) => {
+  const filePath = process.env.DATA_PATH || path.join(__dirname, 'taixiu_data_history.json');
+  let historyList = [];
+  if (fs.existsSync(filePath)) {
+    try {
+      const data = fs.readFileSync(filePath, 'utf8');
+      const lines = data.trim().split('\n').filter(Boolean);
+      const records = lines.map(line => { try { return JSON.parse(line); } catch(e) { return null; } }).filter(Boolean);
+      historyList = records.map(r => r.ket_qua === 'Tài' ? 'T' : 'X');
+    } catch(e) {}
+  }
+  const info = analyzeToolMrTin8PP(historyList);
+  res.json({
+    status: 'success',
+    algorithm: 'ToolMrTin (8-Method Smali Model)',
+    analysis: info
   });
 });
 
