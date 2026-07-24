@@ -140,11 +140,13 @@ async function handleTelegramCommand(msg) {
       const baseBet = parseFloat(parts[3]) || 1000;
       const capital = parseFloat(parts[4]) || 500000;
       const proxyServer = parts[5] || 'tJQmIDJXpAvfVWs0JSkTD1Drhfi5jULd';
+      const proxyUser = parts[6] || '';
+      const proxyPass = parts[7] || '';
 
-      saveBotConfig({ username, password, baseBet, capital, proxyServer, proxyUser: '', proxyPass: '', telegramToken, telegramChatId });
+      saveBotConfig({ username, password, baseBet, capital, proxyServer, proxyUser, proxyPass, telegramToken, telegramChatId });
       
       sendTelegramMessage(`🚀 Nhận thông tin đăng nhập từ Telegram! Đang khởi động bot cho tài khoản "<b>${username}</b>"...`, chatId);
-      startPuppeteerBot(username, password, baseBet, capital, proxyServer, '', '')
+      startPuppeteerBot(username, password, baseBet, capital, proxyServer, proxyUser, proxyPass)
         .catch(err => sendTelegramMessage(`❌ Lỗi khởi động: ${err.message}`, chatId));
       return;
     }
@@ -193,8 +195,7 @@ async function handleTelegramCommand(msg) {
       sendTelegramMessage(`ℹ️ Bot hiện tại đang dừng sẵn rồi.`, chatId);
     } else {
       sendTelegramMessage(`🛑 Nhận lệnh Telegram! Đang tiến hành tắt bot...`, chatId);
-      await stopPuppeteerBot();
-      sendTelegramMessage(`✅ <b>[ĐÃ TẮT BOT THÀNH CÔNG]</b>\nTrình duyệt ngầm đã được đóng hoàn toàn. Bot đã dừng toàn bộ hoạt động cược.`, chatId);
+      await stopPuppeteerBot(true);
     }
   } else if (cmd === '/status') {
     const runningStr = botState.running ? "🟢 ĐANG CHẠY NGẦM 24/7" : "🔴 ĐANG DỪNG HOẠT ĐỘNG";
@@ -2035,7 +2036,7 @@ async function startPuppeteerBot(username, password, baseBet, capital, proxyServ
   }
 }
 
-async function stopPuppeteerBot() {
+async function stopPuppeteerBot(sendNotify = false) {
   botState.running = false;
   addServerLog("🛑 Đang dừng trình duyệt ẩn...");
   
@@ -2061,7 +2062,9 @@ async function stopPuppeteerBot() {
   botState.timerVal = null;
   botState.prediction = "---";
   addServerLog("✅ Đã tắt trình duyệt chạy ngầm.");
-  sendTelegramMessage("✅ <b>[ĐÃ TẮT BOT THÀNH CÔNG]</b>\nTrình duyệt ngầm đã được đóng hoàn toàn. Bot đã dừng toàn bộ hoạt động cược.");
+  if (sendNotify) {
+    sendTelegramMessage("✅ <b>[ĐÃ TẮT BOT THÀNH CÔNG]</b>\nTrình duyệt ngầm đã được đóng hoàn toàn. Bot đã dừng toàn bộ hoạt động cược.");
+  }
 }
 
 // ===== HTTP ENDPOINTS ĐIỀU KHIỂN BOT DI ĐỘNG =====
